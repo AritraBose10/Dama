@@ -1,0 +1,826 @@
+SYSTEM ARCHITECTURE & PROJECT DOCUMENT
+ClinIQ Command Center
+AI-Augmented Multi-Department Clinical Workflow Platform
+Version 1.1  —  Full Reverse-Engineering Update
+Prepared by BAW — Build After Work  |  March 2026
+
+1. Executive Summary
+ClinIQ Command Center is a real-time, AI-augmented clinical workflow platform for multi-department hospital environments. This document (v1.1) supersedes v1.0 and incorporates 20 confirmed findings from a complete frame-by-frame analysis of the OpenClaw reference system. Every UI component, data field, interaction behaviour, and visual detail observed in the source video is now documented with full fidelity.
+
+Product Name
+ClinIQ Command Center
+Document Version
+1.1 — Full Reverse-Engineering Update (20 findings)
+Previous Version
+1.0 — Initial Architecture (8 findings)
+New Findings
+12 additional gaps identified and resolved in this version
+Prepared by
+BAW — Build After Work
+Date
+March 2026
+Deployment
+Multi-department: ED, ICU, General Ward, Outpatient
+AI Strategy
+Pluggable adapter — Anthropic Claude / OpenAI GPT-4o / Gemini / Local
+Stack
+Next.js 14 · TypeScript · Tailwind · shadcn/ui · Supabase · Redis
+AI Mode
+WORKFLOW ONLY · NO AUTO-ORDERS — enforced at system prompt level
+
+
+ 
+2. v1.1 Change Log — All 20 Findings
+The following table documents every gap identified across three successive review passes of the reference video. Items marked NEW were absent from v1.0. Items marked UPDATED were present but inaccurately described.
+
+#
+Finding
+Impact Area
+Status
+1
+AI response panel is a streaming chat window in green monospace font — not a static button
+LAW Panel / AI Interaction
+NEW
+2
+WR Pts x3 — Waiting Room patients grouped by complaint category in Fast Dispo cards
+Header / Fast Dispo Cards
+NEW
+3
+Fast Track breakdown chips: URI X3, MSK X2, GI X2 — live WR count by complaint
+Patient Grid / WR Row
+NEW
+4
+ANTICOAG? — per-patient yellow safety flag chip in Risk Flags column
+Risk Flags Column
+NEW
+5
+9 pts — total department census count displayed as its own field
+Header Strip
+NEW
+6
+LAW panel label on AI summary area — named component, not anonymous panel
+LAW Panel
+NEW
+7
+Risk summary uses colour-coded patient identifiers matching acuity colours
+LAW Panel / Risk Summary
+NEW
+8
+Live text input field ("What\...") inside LAW panel — interactive chat input
+LAW Panel / AI Interaction
+NEW
+9
+IN DEPT counter — total patients in department, distinct from ESI count
+Header Strip
+NEW
+10
+PENDING DISPO count — patients ready but not yet discharged
+Header Strip
+NEW
+11
+DISPO READY — dedicated first-class filter tab in tab bar
+Filter Tab Bar
+NEW
+12
+RISK FLAGS — its own dedicated column with stacked labelled pill badges per patient
+Patient Grid Columns
+NEW
+13
+WAITING ROOM — dedicated filter tab view, not just a header metric
+Filter Tab Bar
+UPDATED
+14
+Filter tabs have active/inactive visual states — cyan outline when selected
+Filter Tab Bar
+NEW
+15
+LAW panel AI output is selectable plain text (text-select highlight observed)
+LAW Panel
+NEW
+16
+Imaging statuses are multi-state: Ordered > Pending tech > In scanner > Rad reading > ALERT
+Pending Rail / Imaging
+UPDATED
+17
+Section header icons: IMAGING uses monitor icon, LABS uses pencil icon, CONSULTS uses phone icon
+Pending Rail
+NEW
+18
+Next Milestone cell is two-line: task text + greyed ETA timestamp on separate line
+Patient Grid / Milestone Cell
+UPDATED
+19
+Top Risk cards have numbered rank badge (1,2,3). Fast Dispo cards have green arrow icon
+Header / Risk + Dispo Cards
+UPDATED
+20
+Chief Complaint chips have icon prefixes: red dot for cardiac, brain for neuro, device icon for procedure
+Patient Grid / Complaint Chips
+UPDATED
+
+
+ 
+3. Complete System Anatomy
+This section is the authoritative specification of every UI module, data field, and interaction observed in the reference system. It supersedes Section 2 of v1.0 entirely.
+
+3.1 Header Command Strip
+A fixed, non-scrolling top bar persistent across all views. Contains the following elements left to right:
+
+Element
+Description / Detail
+Data Type
+Department Label
+ED COMMAND — large cyan text, left-anchored
+Static / config
+IN DEPT
+Total patients currently in department. Orange number. NEW in v1.1
+integer (realtime)
+ESI 1-2
+Count of ESI 1 and 2 patients. Red number. Critical acuity only
+integer (realtime)
+WAITING
+Patients not yet assigned a bed. Orange number
+integer (realtime)
+PENDING DISPO
+Patients medically cleared but not discharged. Amber number. NEW
+integer (realtime)
+DOOR-TO-DOC
+Elapsed time since last patient arrival. Green countdown
+duration (mm:ss)
+LWBS RISK
+Left Without Being Seen risk. Colour-coded: LOW/MED/HIGH
+enum (AI scored)
+AI ACTIVE badge
+Green dot + 'AI ASSIST ACTIVE' pill badge, top-centre
+boolean status
+DR. [initials]
+Currently logged-in clinician's initials — top right. NEW in v1.1
+auth session
+
+3.2 Top Risk Cards & Fast Dispo Cards
+Two sets of pinned patient cards below the header strip, side by side. These are persistent patient summaries surfaced by AI acuity scoring.
+
+Card Type
+Specification
+Top Risk Cards (x3)
+Numbered rank badge (1, 2, 3) on left edge. Shows: Patient initials / Bed number. One-line clinical summary (e.g. 'ACS — delta trop pending 02:15'). Red/amber colour coding. Badge number is rank not ESI. NEW: numbered circle badge component required.
+Fast Dispo Cards (x2+)
+Green arrow → icon on left edge. Shows: Patient initials / Bed. One-line dispo rationale (e.g. 'Laceration — repair only'). Second card can show grouped WR patients: 'WR Pts x3 · URI / Strain / GI — fast track'. NEW: green arrow icon + WR grouping logic.
+
+3.3 Action Buttons Row
+A row of action buttons below the risk/dispo cards. Confirmed buttons observed:
+	•	Start Shift — initiates the shift, timestamps the start
+	•	Pending Summary — opens a full pending results overlay
+	•	Handoff — opens the shift handoff view with AI-generated summary
+
+3.4 Filter Tab Bar
+A horizontal tab bar that filters the patient grid. Active tab is highlighted with a cyan/teal outline. Inactive tabs are plain text. Full confirmed tab set:
+
+Tab Label
+Behaviour
+Notes
+ALL PATIENTS
+Default view — all patients in department
+Active state = cyan underline
+ESI 1-2
+Filters to critical acuity patients only
+—
+PENDING RESULTS
+Filters to patients with outstanding labs/imaging
+—
+DISPO READY
+Filters to patients cleared for discharge. NEW in v1.1
+First-class tab
+WAITING ROOM
+Patients not yet roomed. UPDATED — is a full tab view, not just a metric
+Shows WR-only rows
+Top 5 sick
+AI-ranked top 5 highest risk patients
+Active = white outline
+Fast dispos
+AI-predicted shortest time to discharge
+Active = cyan outline
+Overdue
+Patients with expired milestone timers
+—
+Handoff
+Shift handoff view with AI summary
+—
+
+3.5 Patient Grid — Full Column Specification
+The primary tracking board. Each row is one patient or one waiting-room group. Full column set confirmed from video frames:
+
+Column
+Data / Type
+Visual Detail
+Source
+FLAGS (col 1)
+Colour-coded left-edge strip
+Red = critical, Amber = watch, Green = stable
+AI risk engine
+BED
+Bed number or — for WR
+Plain number
+ADT / manual
+PATIENT
+Initials + age + gender
+Two lines: 'J.S.' / '62 M'
+EHR / registration
+ESI
+1–5 badge
+Coloured square badge: red(1-2), orange(3), yellow(4), green(5)
+Triage input
+CHIEF COMPLAINT
+Tagged complaint chip
+Icon-prefixed chip: red dot + cardiac, brain icon + neuro, device icon + procedure. UPDATED v1.1
+Triage / NLP parse
+RISK FLAGS
+Stacked labelled pill badges. NEW full column in v1.1
+Multiple per row: ACS/PE, AMS RISK, ECTOPIC?, G1P0, STROKE!, SEPSIS, ANTICOAG, ANTICOAG?
+AI risk engine
+TIME IN
+Elapsed time HH:MM
+Green = normal, Red = threshold exceeded, 'OVERDUE' label in red
+ADT timestamp
+NEXT MILESTONE
+Two-line cell. UPDATED v1.1
+Line 1: task text (bold). Line 2: greyed ETA '≈ 19:55'. Plus 'Next 20m' for WR rows
+AI + clinical logic
+OWNER
+Role badge
+MD=blue, PA=green, RN=purple, CHG=dark blue. Coloured filled pill
+Assignment
+AI ASSIST
+Contextual action button
+Outlined rectangular chip. Unique per patient. Clickable — opens LAW panel
+AI inference
+
+3.5.1 Risk Flag Chip Registry
+Complete set of risk flag chips observed per patient row. Each is a coloured pill badge in the RISK FLAGS column:
+
+Chip Label
+Colour / Severity
+Clinical Trigger
+ACS/PE
+Red — critical
+Chest pain + troponin pending / PE risk factors
+AMS RISK
+Amber — warning
+Altered mental status indicators
+ECTOPIC?
+Red — critical
+Positive UPT + abdominal pain, no US yet
+G1P0
+Amber — obstetric
+OB patient — gravida/para status flag
+STROKE!
+Red — critical
+Neuro deficit + AMS / CVA pathway triggered
+SEPSIS
+Red — critical
+Sepsis criteria met — triggers Sepsis Watch module
+ANTICOAG
+Amber — safety
+Patient on anticoagulation — active contraindication flag
+ANTICOAG?
+Yellow — question
+Anticoag status unknown — must verify before procedure
+URI X3
+Amber — volume
+Fast track: 3 URI patients in waiting room
+MSK X2
+Amber — volume
+Fast track: 2 musculoskeletal patients in waiting room
+GI X2
+Amber — volume
+Fast track: 2 GI patients in waiting room
+
+3.5.2 Chief Complaint Icon Map
+Each chief complaint chip uses an icon prefix. UPDATED in v1.1 — these are not plain text chips:
+
+Complaint Chip Text
+Icon Prefix Detail
+Chest pain / SOB
+Red filled circle — cardiac/critical indicator
+Abd pain / N/V
+Small icon (partially obscured) — abdominal complaint
+Neuro / AMS
+Brain/head icon — neurological complaint
+Procedure / lac
+Device/tablet icon — procedural complaint
+Fast track mix
+Monitor/device icon — grouped fast-track waiting room row
+
+3.6 Pending Results Rail (Right Panel)
+A right-side panel showing all outstanding clinical items. Header shows: PENDING — [N items] red badge. Three collapsible sections, each with a distinct icon and count badge:
+
+Section
+Icon / Badge
+Item Format
+IMAGING
+Monitor icon + orange count badge
+[Modality] — [Patient] / Bed [N]Ordered [HH:MM] · [Status][alert line in red if overdue]
+LABS
+Pencil/edit icon + yellow count badge
+[Test name] — [Patient] / Bed [N][detail line] due [HH:MM][CRITICAL line in red if critical]
+CONSULTS
+Phone icon + purple count badge
+[Specialty] — [Patient] / Bed [N]Called [HH:MM] · [callback status]
+
+3.6.1 Imaging Status State Machine
+Imaging items cycle through confirmed multi-state statuses. UPDATED in v1.1:
+	•	Ordered — order placed, timestamp shown
+	•	Pending tech — technician not yet started
+	•	In scanner — patient actively being scanned
+	•	Rad reading — image acquired, awaiting radiologist read
+	•	ALERT: >30m — read threshold exceeded, escalation triggered (shown in red)
+
+3.6.2 Lab Alert Thresholds
+Labs show inline alert rules directly in the pending rail:
+	•	Trop #2 — 3hr delta draw due [time] · Alert on critical value
+	•	Lactate — Initial: [value] with delta indicator · CRITICAL — sepsis bundle! (red, lightning bolt icon)
+	•	D-Dimer — Pending · Alert if >500
+
+3.7 Sepsis Watch Module
+A dedicated sepsis surveillance widget that appears to the right of the Fast Dispo cards when triggered. Distinct from the SEPSIS risk flag chip in the patient grid.
+
+Trigger
+Lactate > 2.0, SEPSIS chip generated, or bundle non-compliance detected
+Display
+Red pulsing dot + patient identifier + 'SEPSIS WATCH' label
+Bundle Clock
+Live elapsed timer labelled 'Bundle clock:' — counts up from trigger time
+Patient shown
+Full identifier: e.g. 'R.T. — Lacta...' (truncated to fit)
+Action
+Clicking opens bundle compliance checklist in LAW panel
+
+3.8 LAW Panel (Live AI Workspace)
+The LAW panel is the AI interaction layer of the system. It occupies the bottom portion of the screen and is the most complex component in the system. All findings from v1.0 and v1.1 are consolidated here.
+
+Panel Label
+'LAW' — displayed as a short text label on the left edge of the panel
+Mode Badge
+'WORKFLOW ONLY · NO AUTO-ORDERS' — cyan-outlined pill badge always visible
+Output Format
+Green monospace font on dark background — streaming plain text, not rendered cards
+Selectability
+AI output is fully text-selectable (confirmed via blue highlight in frames 056/057)
+Input Field
+Live text input at bottom: e.g. '*What\' — user can type prompts directly
+AI Mode
+Streaming response — text appears character by character as AI generates
+Context Loading
+Clicking AI Assist chip pre-loads patient context into LAW panel automatically
+Risk Summary
+Displays 'Top 5 highest risk:' list with colour-coded patient identifiers
+Fast Dispo Mode
+When Fast dispos tab clicked, shows 'Fast dispo candidates:' with time estimates
+AVS Generation
+Can generate AVS (After-Visit Summary) templates: 'Generating AVS templates for all five now (review required)'
+
+3.8.1 Confirmed LAW Panel Output Examples
+The following AI response texts were directly read from video frames:
+
+Trigger
+AI Output Observed
+Fast dispos tab clicked
+Fast dispo candidates:A.B. Bed 15 — Laceration; repair + AVS = ~30 min4. WR URI x3 — Rapid strep → Rx → AVS = ~30-45 min eachWR MSK x2 — XR (if ordered) → read → discharge = ~45-60 minGenerating AVS templates for all five now (review required).
+Risk summary (auto)
+Top 5 highest risk:R.T. Bed 4 — Stroke + sepsis (lactate 4.2, INR 3.1, CT unread 35m)J.S. Bed 12 — ACS rule-out, delta trop pendingM.K. Bed 7 — Ectopic rule-out, positive UPT, no US result yetWR — Triage incomplete for 2 patientsA.B. Bed 15 — Low risk but verify anticoag status before repair
+Predict fastest dispos
+Predict fastest dispos — contextual suggestion for CHG owner role
+
+3.8.2 LAW Panel Colour Coding
+The risk summary output uses ANSI-style colour coding matching patient acuity in the grid:
+	•	Red text — critical patients (R.T., highest risk)
+	•	Orange/amber text — watch patients (J.S., M.K.)
+	•	White text — lower risk or WR patients
+	•	All colour coding is consistent with the Risk Flags column in the patient grid
+
+
+ 
+4. Recommended Technology Stack
+
+4.1 Frontend
+Layer
+Technology
+Rationale
+Version
+Framework
+Next.js 14 (App Router)
+SSR for fast initial load, RSC for server data
+14.x
+Language
+TypeScript
+Type safety critical for clinical data models
+5.x
+Styling
+Tailwind CSS
+Dark-theme utility classes, consistent spacing
+3.x
+Components
+shadcn/ui
+Accessible primitives — Badge, Button, Tooltip
+Latest
+State
+Zustand
+Lightweight global state: patient list, active tab, LAW panel
+4.x
+Data Fetching
+TanStack Query
+Caching, polling every 30s, optimistic updates
+5.x
+Realtime
+Supabase Realtime
+Sub-second patient row updates via Phoenix channels
+Latest
+Charts
+Recharts
+Vitals trends, census KPIs in admin view
+2.x
+Forms
+React Hook Form + Zod
+Validated clinical inputs, safe AI output parsing
+Latest
+Monospace font
+JetBrains Mono
+Used in LAW panel to replicate green terminal output
+Latest
+PWA
+next-pwa
+Offline resilience, tablet / bedside support
+5.x
+
+4.2 Backend & Database
+Layer
+Technology
+Rationale
+Notes
+BaaS
+Supabase
+Auth + DB + Realtime + Storage in one platform
+Self-hostable
+Database
+PostgreSQL
+Relational integrity, row-level security (RLS)
+RLS enforced
+Realtime
+Supabase Realtime
+Patient row updates, alert triggers, LAW panel push
+WebSocket
+Cache / Queue
+Redis (Upstash)
+Alert dedup, AI response cache, rate limiting
+Serverless
+Jobs
+Supabase Edge + pg_cron
+Milestone timer expiry, imaging 30m alerts, AI re-score
+Every 60s
+Auth
+Supabase Auth + RBAC
+Roles: MD / PA / RN / CHG / ADMIN / READONLY
+JWT + RLS
+Storage
+Supabase Storage
+Handoff PDFs, AVS exports, document attachments
+S3-compat
+
+4.3 AI Inference Layer — Pluggable Adapter
+The AI layer sits behind a single AIProvider interface. The LAW panel, risk scorer, dispo predictor, and all other AI modules call this interface. Swapping providers requires only an environment variable change.
+
+Provider
+Model
+Best Use Case
+Env Key
+Anthropic
+Claude 3.5 Sonnet
+Primary: long-context clinical reasoning, safety output
+ANTHROPIC_API_KEY
+OpenAI
+GPT-4o
+Fallback: speed + function calling
+OPENAI_API_KEY
+Google
+Gemini 1.5 Pro
+Multimodal: imaging report + text
+GOOGLE_API_KEY
+Local
+Llama 3 / Mistral
+Air-gapped / on-prem HIPAA deployment
+Self-hosted
+
+
+ 
+5. Core Data Models
+All tables include row-level security (RLS) policies tied to department and role. Updated in v1.1 to include all new fields identified from the reverse-engineering.
+
+5.1 patients (updated v1.1)
+Field
+Type
+Description
+id
+uuid PK
+Unique patient encounter ID
+department_id
+uuid FK
+Assigned department
+bed_id
+uuid FK / null
+Current bed — null if in waiting room
+initials
+text
+Display initials (de-identified)
+age
+integer
+Patient age
+gender
+text
+M / F / Other
+esi_level
+integer 1-5
+Emergency Severity Index — drives badge colour
+chief_complaint
+text
+Free text complaint
+complaint_category
+text
+Mapped category: CARDIAC / NEURO / PROCEDURE / GI / OB / FAST_TRACK
+complaint_icon
+text
+Icon identifier for complaint chip: RED_DOT / BRAIN / DEVICE / etc
+arrived_at
+timestamptz
+Arrival / door time
+roomed_at
+timestamptz
+Time patient was assigned a bed
+status
+enum
+WAITING / ROOMED / BOARDING / DISPO_READY / DISCHARGED
+risk_score
+float
+AI-computed acuity risk 0–1
+risk_flags
+jsonb
+Array: [{label, color, severity}] — e.g. {label:'STROKE!',color:'red',severity:'critical'}
+owner_role
+text
+MD / PA / RN / CHG
+owner_user_id
+uuid FK
+Assigned clinician
+next_milestone_text
+text
+Task text — line 1 of milestone cell
+next_milestone_eta
+timestamptz
+ETA timestamp — line 2 of milestone cell (≈ HH:MM)
+milestone_overdue
+boolean
+True when current time > milestone_eta
+ai_suggestion
+text
+AI Assist chip label text
+dispo_prediction_mins
+integer
+AI-predicted minutes to discharge
+sepsis_watch
+boolean
+On sepsis surveillance
+sepsis_bundle_started_at
+timestamptz
+When bundle clock started — drives bundle clock timer
+anticoag_status
+enum
+CONFIRMED / UNKNOWN / NONE — drives ANTICOAG / ANTICOAG? chips
+is_waiting_room
+boolean
+True if patient not yet roomed — shows in WR tab and WR rows
+fast_track_category
+text
+URI / MSK / GI / null — for fast track chip grouping
+updated_at
+timestamptz
+Last update — drives Supabase Realtime broadcast
+
+5.2 Supporting Tables
+Table
+Key Fields
+Purpose
+departments
+id, name, type, hospital_id
+Department registry
+beds
+id, label, department_id, status (OPEN/OCCUPIED/DIRTY)
+Bed management
+imaging_orders
+id, patient_id, modality, body_part, status (enum: ORDERED/PENDING_TECH/IN_SCANNER/RAD_READING/ALERT), ordered_at, alert_threshold_mins
+Imaging queue with full status enum
+lab_results
+id, patient_id, test_name, value, status, critical, alert_threshold, ordered_at, resulted_at
+Labs with threshold-based alert config
+consults
+id, patient_id, specialty, called_at, callback_at, status
+Specialist consult tracking
+law_interactions
+id, patient_id, department_id, user_id, trigger_type, prompt, response, provider, latency_ms, created_at
+Full AI audit log for LAW panel
+alerts
+id, patient_id, type, message, severity, acknowledged_at, created_at
+Alert queue
+users
+id, name, initials, role, department_id
+Clinician accounts — initials shown in DR. header
+shifts
+id, user_id, department_id, started_at, ended_at, handoff_note
+Shift management
+
+
+ 
+6. AI System Design
+6.1 LAW Panel Architecture
+The LAW panel is the primary AI interface. It is a streaming text workspace — not a card-based UI. Key implementation requirements:
+	•	Render output in JetBrains Mono or similar monospace font, green on dark background
+	•	Stream tokens as they arrive — do not wait for full response
+	•	Output area is a scrollable div with text-select enabled
+	•	Input field at bottom — persistent, always-visible text prompt
+	•	Context auto-loaded when AI Assist chip clicked — patient data injected into prompt
+	•	Mode badge 'WORKFLOW ONLY · NO AUTO-ORDERS' always visible — cannot be hidden
+	•	'LAW' label on left edge of panel — named component for routing and accessibility
+
+6.2 AI Modules
+Module
+Trigger
+Output
+Provider
+Risk Scorer
+On arrival + every 10 min
+risk_score + risk_flags array
+Any
+Complaint Categoriser
+On triage entry
+complaint_category + complaint_icon
+Any
+Milestone Suggester
+On status change
+next_milestone_text + eta
+Any
+Dispo Predictor
+Every 30 min
+dispo_prediction_mins
+Any
+LAW Contextual Assist
+On-demand (chip click)
+Streaming text response
+Primary
+Sepsis Surveillance
+On lab/vital ingested
+sepsis_watch + bundle_started_at
+Any
+Fast Dispo Ranker
+Every 15 min
+Ordered dispo candidate list
+Primary
+Risk Narrator
+Every 5 min / on alert
+Colour-coded plain text summary
+Primary
+AVS Generator
+On fast dispo trigger
+AVS draft text per patient
+Primary
+Handoff Summariser
+On shift end
+Plain-English handoff note
+Primary
+
+6.3 Prompt Safety Architecture
+	•	System prompt enforces: WORKFLOW ONLY, NO AUTO-ORDERS, NO DIAGNOSIS, NO PRESCRIBING
+	•	All responses parsed against Zod schema — invalid or unsafe responses discarded
+	•	Every call logged to law_interactions table — full audit trail
+	•	Patient identifiers in prompts use encounter ID only — no MRN, DOB, SSN
+	•	Risk summary output uses consistent colour-code tokens mapped client-side — AI outputs patient labels, client applies colour
+	•	AVS templates flagged '(review required)' — clinician must approve before use
+
+
+ 
+7. Screens & UX Specification
+7.1 Screen Inventory
+Screen
+Description
+ED Command (primary)
+Full board: header strip, risk/dispo cards, filter tabs, patient grid, pending rail, LAW panel
+ICU Command
+Acuity score, vent status, bundle compliance, sedation prompts
+General Ward
+Bed occupancy, discharge planning, falls risk, nursing task assist
+Outpatient / Clinic
+Appointment flow, no-show risk, pre-visit AI summary
+Patient Detail Drawer
+Slide-out panel: vitals, full labs, imaging, complaint history, AI chat
+Pending Summary Overlay
+Full-screen pending results with filter/sort — triggered by 'Pending Summary' button
+Handoff View
+Shift handoff screen: AI-generated summary + manual addendum + sign-off
+Admin / Settings
+Dept config, AI provider selector, alert thresholds, user roles
+Super Admin
+Hospital-wide view: all dept KPIs, LWBS rate, census, throughput
+Login / Auth
+Role-based login with dept assignment, SSO support
+
+7.2 Design System
+Token
+Value / Specification
+Background
+#0F172A (near-black navy) — primary surface
+Surface / Card
+#1E293B — slightly lighter card background
+Border
+#334155 — subtle divider
+Primary Accent
+#06B6D4 (cyan) — active states, AI elements, tab highlights
+Critical
+#DC2626 (red) — STROKE!, SEPSIS, OVERDUE, CRITICAL lab
+Warning
+#D97706 (amber) — ANTICOAG, G1P0, time warnings
+Question
+#CA8A04 (yellow) — ANTICOAG?, unknown status flags
+Safe / Normal
+#16A34A (green) — Door-to-Doc timer, ESI 4-5, normal time-in
+UI Font
+Inter or Geist Sans — all UI text
+Data / LAW Font
+JetBrains Mono — LAW panel output, lab values, timer displays
+LAW text colour
+#4ADE80 (bright green) — monospace AI output on dark bg
+ESI badge colours
+1=red, 2=orange-red, 3=orange, 4=yellow, 5=green — filled square badge
+Owner badge colours
+MD=blue, PA=green, RN=purple, CHG=dark navy
+
+
+ 
+8. Security & Compliance
+8.1 Access Control
+	•	Roles: ADMIN · MD (Physician) · PA/NP · RN (Nurse) · CHG (Charge Nurse) · READONLY
+	•	Row-Level Security on all Postgres tables — users access only their department's data
+	•	JWT-based sessions, 8-hour expiry with refresh
+	•	DR. [initials] in header always reflects the current authenticated session
+	•	Full audit log: all data access, AI queries, and patient record changes
+
+8.2 AI Safety Controls
+	•	System prompt enforces workflow-only mode — cannot be overridden by user input
+	•	All AI API calls proxied server-side — API keys never exposed to browser
+	•	law_interactions table logs every prompt hash, response, provider, and latency
+	•	AVS and handoff outputs marked as drafts requiring clinical review before use
+	•	Graceful degradation: if AI API unavailable, system operates in manual mode
+
+
+9. Build Roadmap
+
+Phase
+Deliverables
+Duration
+Phase 0Discovery
+Requirements sign-off, design system tokens, Figma prototype of ED Command view, AI provider selection, Supabase schema review
+2 wks
+Phase 1Core Build
+Next.js scaffold, Supabase schema + RLS, Auth + RBAC (DR. initials in header), ED Command board: header strip (all 7 metrics), patient grid (all columns incl. RISK FLAGS), complaint icon chips, filter tab bar (all 9 tabs with active states), LAW panel (monospace streaming, input field, mode badge)
+4 wks
+Phase 2AI Layer
+All 10 AI modules wired: risk scorer, complaint categoriser, milestone suggester, dispo predictor, LAW contextual assist (streaming), sepsis surveillance + bundle clock, fast dispo ranker, risk narrator (colour-coded), AVS generator, handoff summariser. Pluggable provider adapter.
+3 wks
+Phase 3Pending Rail
+Full pending rail: imaging (5-state enum), labs (threshold alerts), consults. Section icons (monitor/pencil/phone). PENDING N items badge. Sepsis Watch widget with bundle clock timer.
+2 wks
+Phase 4Multi-Dept
+ICU, General Ward, Outpatient command views. Super Admin KPI dashboard. Shift management + handoff view. Department config in admin.
+3 wks
+Phase 5Integrations
+Lab webhook ingestion, imaging status webhooks, optional HL7 FHIR EHR adapter, bed management sync, push notifications.
+3 wks
+Phase 6Hardening
+Security audit, HIPAA review, WCAG AA accessibility, performance tuning, load testing, pilot deployment with 1 ED department.
+2 wks
+Phase 7Launch
+Full multi-department rollout, staff training, documentation, monitoring, support SLA.
+2 wks
+
+Total estimated timeline: 21 weeks (~5.5 months) from discovery to full multi-department launch.
+
+
+10. Next Steps
+	•	Review and approve this v1.1 architecture document
+	•	Select AI provider (recommended: Anthropic Claude 3.5 Sonnet as primary, OpenAI GPT-4o as fallback)
+	•	Identify pilot department — ED recommended for highest impact and closest reference match
+	•	Engage hospital IT / compliance for HIPAA and data residency requirements
+	•	Begin Phase 0 — Figma prototype of ED Command view including LAW panel
+	•	Set up GitHub repository, Supabase project, Vercel deployment pipeline
+	•	Define risk flag trigger rules with clinical advisor before Phase 1 build
+
+
+Prepared by BAW — Build After Work
+buildafterwork.com  ·  hello@baw.studio
+This document is confidential. All AI features described are assistive tools only — no feature in this system places clinical orders or makes diagnostic determinations autonomously.
