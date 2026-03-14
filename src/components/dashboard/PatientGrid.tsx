@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Patient, RiskFlag, EsiLevel } from '@/types';
 import { usePatients } from '@/hooks/usePatients';
+import { useClinicalStore } from '@/hooks/useStore';
 
 const EsiBadge: React.FC<{ level: EsiLevel }> = ({ level }) => {
   const colors = {
@@ -42,6 +43,7 @@ const ComplaintIcon: React.FC<{ icon: string }> = ({ icon }) => {
 
 export const PatientGrid: React.FC = () => {
   const { patients, isLoading } = usePatients();
+  const setSelectedPatientId = useClinicalStore(state => state.setSelectedPatientId);
 
   if (isLoading) {
     return (
@@ -150,7 +152,10 @@ export const PatientGrid: React.FC = () => {
               </td>
               
               <td className="px-4 py-4">
-                <button className="flex items-center gap-1.5 px-3 py-1 bg-cliniq-navy border border-cliniq-cyan/50 hover:bg-cliniq-cyan/10 rounded text-[10px] font-bold text-cliniq-cyan uppercase tracking-wider transition-all">
+                <button 
+                  onClick={() => setSelectedPatientId(patient.id)}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-cliniq-navy border border-cliniq-cyan/50 hover:bg-cliniq-cyan/10 rounded text-[10px] font-bold text-cliniq-cyan uppercase tracking-wider transition-all"
+                >
                   <Activity className="w-3 h-3" />
                   Assist
                 </button>

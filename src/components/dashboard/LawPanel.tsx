@@ -1,53 +1,90 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { aiProvider } from '@/lib/ai/provider';
-import { Badge } from '@/components/ui/badge';
+import { generateLawContext, prompts } from '@/lib/ai/prompts';
+import { mockPatients } from '@/lib/mockData';
+import { useClinicalStore } from '@/hooks/useStore';
+
+interface Message {
+  id: string;
+  role: 'user' | 'ai' | 'system';
+  text: string;
+  timestamp: Date;
+}
 
 export const LAWPanel: React.FC = () => {
-  const [inputText, setInputText] = useState('');
-  const [messages, setMessages] = useState<string[]>([
-    "Top 5 highest risk:",
-    "R.T. Bed 4 — Stroke + sepsis (lactate 4.2, INR 3.1, CT unread 35m)",
-    "J.S. Bed 12 — ACS rule-out, delta trop pending",
-    "M.K. Bed 7 — Ectopic rule-out, positive UPT, no US result yet",
-    "WR — Triage incomplete for 2 patients",
-    "A.B. Bed 15 — Low risk but verify anticoag status before repair",
-    "",
-    "Ready for input..."
+  const { selectedPatientId, setIsAiThinking } = useClinicalStore();
+  const [messages, setMessages] = useState<Message[]>([
+    { id: 'initial-0', role: 'system', text: "Top 5 highest risk:", timestamp: new Date() },
+    { id: 'initial-1', role: 'system', text: "R.T. Bed 4 — Stroke + sepsis (lactate 4.2, INR 3.1, CT unread 35m)", timestamp: new Date() },
+    { id: 'initial-2', role: 'system', text: "J.S. Bed 12 — ACS rule-out, delta trop pending", timestamp: new Date() },
+    { id: 'initial-3', role: 'system', text: "M.K. Bed 7 — Ectopic rule-out, positive UPT, no US result yet", timestamp: new Date() },
+    { id: 'initial-4', role: 'system', text: "WR — Triage incomplete for 2 patients", timestamp: new Date() },
+    { id: 'initial-5', role: 'system', text: "A.B. Bed 15 — Low risk but verify anticoag status before repair", timestamp: new Date() },
+    { id: 'initial-6', role: 'system', text: "", timestamp: new Date() },
+    { id: 'initial-7', role: 'system', text: "Ready for input...", timestamp: new Date() }
   ]);
   
+  const [inputText, setInputText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const triggerAI = async (prompt: string, context?: any) => {
+  const triggerAI = async (input: string, contextPatient?: any) => {
+    if (isStreaming) return;
+    
+    setIsAiThinking(true);
     setIsStreaming(true);
-    setMessages(prev => [...prev, "", `> Processing command...`]);
-    let currentResponse = "";
+    
+    const aiMessageId = Date.now().toString();
+    setMessages(prev => [...prev, { id: aiMessageId, role: 'ai', text: '> Processing...', timestamp: new Date() }]);
     
     try {
-      await aiProvider.streamText(prompt, (token) => {
-        currentResponse += token;
+      const patient = contextPatient || mockPatients[0];
+      const context = generateLawContext(patient);
+      const systemPrompt = prompts.patientAssist(context);
+
+      const stream = aiProvider.streamText(input, systemPrompt);
+      
+      let fullText = '';
+      for await (const chunk of stream) {
+        fullText += chunk;
         setMessages(prev => {
           const newMessages = [...prev];
-          if (newMessages[newMessages.length - 1].startsWith('>')) {
-            newMessages[newMessages.length - 1] = currentResponse;
-          } else {
-            newMessages.push(currentResponse);
+          const index = newMessages.findIndex(m => m.id === aiMessageId);
+          if (index !== -1) {
+            newMessages[index] = { ...newMessages[index], text: fullText };
           }
           return newMessages;
         });
-      }, context);
+      }
     } catch (error) {
-      setMessages(prev => [...prev, "!! ERROR: AI Provider unavailable."]);
+      console.error('AI Stream Error:', error);
+      setMessages(prev => [...prev, {
+        id: `err-${Date.now()}`,
+        role: 'ai',
+        text: 'ERROR: AI Provider timeout. Check API configuration.',
+        timestamp: new Date()
+      }]);
     } finally {
       setIsStreaming(false);
+      setIsAiThinking(false);
     }
   };
 
   useEffect(() => {
-    // Initial risk summary trigger
-    triggerAI("Top 5 highest risk summary", { patients: "mock_census" });
-  }, []);
+    if (selectedPatientId) {
+      const patient = mockPatients.find(p => p.id === selectedPatientId);
+      if (patient) {
+        setMessages(prev => [...prev, {
+          id: `usr-${Date.now()}`,
+          role: 'user',
+          text: `Evaluate Bed ${patient.bed_label || patient.initials}`,
+          timestamp: new Date()
+        }]);
+        triggerAI(`Evaluate risk and next steps for patient in ${patient.bed_label || 'current bed'}. Current complaint: ${patient.chief_complaint}.`, patient);
+      }
+    }
+  }, [selectedPatientId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -59,14 +96,18 @@ export const LAWPanel: React.FC = () => {
     if (e.key === 'Enter' && inputText && !isStreaming) {
       const command = inputText;
       setInputText('');
-      setMessages(prev => [...prev, `*What\\ ${command}`]);
+      setMessages(prev => [...prev, {
+        id: `usr-${Date.now()}`,
+        role: 'user',
+        text: command,
+        timestamp: new Date()
+      }]);
       triggerAI(command);
     }
   };
 
   return (
     <div className="h-64 bg-[#020617] border-t border-cliniq-surface flex flex-col relative font-mono">
-      {/* Panel Header/Badge */}
       <div className="flex items-center justify-between px-4 py-1 bg-cliniq-navy/80 border-b border-cliniq-surface/50">
         <div className="flex items-center gap-3">
           <span className="text-[11px] font-bold text-slate-500 tracking-tighter">LAW</span>
@@ -82,25 +123,22 @@ export const LAWPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Terminal Output */}
       <div 
         ref={scrollRef}
         className="flex-1 overflow-y-auto p-4 space-y-1 text-cliniq-ai-green text-[13px] leading-relaxed selection:bg-cliniq-cyan selection:text-white"
       >
-        {messages.map((msg, i) => (
-          <div key={i} className={cn(
+        {messages.map((msg) => (
+          <div key={msg.id} className={cn(
             "whitespace-pre-wrap",
-            msg.includes('R.T.') && "text-cliniq-red",
-            (msg.includes('J.S.') || msg.includes('M.K.')) && "text-cliniq-amber",
-            msg.startsWith('*What') && "text-cliniq-cyan font-bold"
+            msg.role === 'user' && "text-cliniq-cyan font-bold",
+            msg.role === 'ai' && msg.text.startsWith('ERROR') && "text-cliniq-red"
           )}>
-            {msg}
+            {msg.role === 'user' ? `*What\\ ${msg.text}` : msg.text}
           </div>
         ))}
         {isStreaming && <span className="inline-block w-2 h-4 bg-cliniq-ai-green animate-pulse align-middle ml-1" />}
       </div>
 
-      {/* Input Field */}
       <div className="p-3 bg-cliniq-navy border-t border-cliniq-surface flex items-center gap-3">
         <span className="text-cliniq-cyan font-bold">*What\</span>
         <input 
