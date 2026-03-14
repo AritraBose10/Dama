@@ -9,7 +9,7 @@ import { PatientGrid } from '@/components/dashboard/PatientGrid';
 import { PendingRail } from '@/components/dashboard/PendingRail';
 import { LAWPanel } from '@/components/dashboard/LawPanel';
 import { SepsisWatch } from '@/components/dashboard/SepsisWatch';
-import { mockPatients, mockImaging, mockLabs, mockConsults } from '@/lib/mockData';
+import { mockImaging, mockLabs, mockConsults } from '@/lib/mockData';
 
 export default function EDCommandPage() {
   const [activeTab, setActiveTab] = useState<FilterTab>('ALL PATIENTS');
@@ -17,15 +17,7 @@ export default function EDCommandPage() {
   return (
     <main className="flex flex-col h-screen bg-cliniq-navy overflow-hidden">
       {/* Fixed Header Area */}
-      <HeaderStrip 
-        inDept={9}
-        esi12={2}
-        waiting={4}
-        pendingDispo={1}
-        doorToDoc="12:45"
-        lwbsRisk="MED"
-        doctorInitials="AB"
-      />
+      <HeaderStrip />
       
       <div className="flex-1 flex overflow-hidden">
         {/* Main Workspace */}
@@ -46,7 +38,7 @@ export default function EDCommandPage() {
             onTabChange={setActiveTab}
           />
           
-          <PatientGrid patients={mockPatients} />
+          <PatientGrid />
           
           <LAWPanel />
         </div>

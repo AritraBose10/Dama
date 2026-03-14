@@ -1,26 +1,16 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Circle } from 'lucide-react';
+import { useRealtimeMetrics } from '@/hooks/useRealtimeMetrics';
 
-interface HeaderStripProps {
-  inDept: number;
-  esi12: number;
-  waiting: number;
-  pendingDispo: number;
-  doorToDoc: string; // mm:ss
-  lwbsRisk: 'LOW' | 'MED' | 'HIGH';
-  doctorInitials: string;
-}
+export const HeaderStrip: React.FC = () => {
+  const { waiting, boarding, arrivals, pndBoard, total } = useRealtimeMetrics();
+  
+  // Real clinical dashboards often have some mock/static targets during rollout
+  const doorToDoc = "12:45";
+  const lwbsRisk = 'MED';
+  const doctorInitials = "AB";
 
-export const HeaderStrip: React.FC<HeaderStripProps> = ({
-  inDept,
-  esi12,
-  waiting,
-  pendingDispo,
-  doorToDoc,
-  lwbsRisk,
-  doctorInitials,
-}) => {
   const lwbsColor = {
     LOW: 'text-cliniq-green',
     MED: 'text-cliniq-amber',
@@ -35,19 +25,19 @@ export const HeaderStrip: React.FC<HeaderStripProps> = ({
         <div className="flex items-center gap-6 text-sm font-medium">
           <div className="flex flex-col">
             <span className="text-muted-foreground text-[10px] uppercase">In Dept</span>
-            <span className="text-cliniq-amber text-lg leading-none">{inDept}</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-muted-foreground text-[10px] uppercase">ESI 1-2</span>
-            <span className="text-cliniq-red text-lg leading-none">{esi12}</span>
+            <span className="text-cliniq-amber text-lg leading-none">{total}</span>
           </div>
           <div className="flex flex-col">
             <span className="text-muted-foreground text-[10px] uppercase">Waiting</span>
-            <span className="text-cliniq-amber text-lg leading-none">{waiting}</span>
+            <span className="text-cliniq-cyan text-lg leading-none">{waiting}</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-muted-foreground text-[10px] uppercase">Pending Dispo</span>
-            <span className="text-cliniq-amber text-lg leading-none">{pendingDispo}</span>
+            <span className="text-muted-foreground text-[10px] uppercase">Boarding</span>
+            <span className="text-cliniq-red text-lg leading-none">{boarding}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-muted-foreground text-[10px] uppercase">PND Board</span>
+            <span className="text-cliniq-amber text-lg leading-none">{pndBoard}</span>
           </div>
           <div className="flex flex-col">
             <span className="text-muted-foreground text-[10px] uppercase">Door-to-Doc</span>

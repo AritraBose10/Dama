@@ -13,10 +13,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Patient, RiskFlag, EsiLevel } from '@/types';
-
-interface PatientGridProps {
-  patients: Patient[];
-}
+import { usePatients } from '@/hooks/usePatients';
 
 const EsiBadge: React.FC<{ level: EsiLevel }> = ({ level }) => {
   const colors = {
@@ -43,7 +40,17 @@ const ComplaintIcon: React.FC<{ icon: string }> = ({ icon }) => {
   }
 };
 
-export const PatientGrid: React.FC<PatientGridProps> = ({ patients }) => {
+export const PatientGrid: React.FC = () => {
+  const { patients, isLoading } = usePatients();
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-cliniq-navy text-cliniq-cyan font-mono animate-pulse">
+        LOADING TRACKER...
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 overflow-auto bg-cliniq-navy">
       <table className="w-full text-left border-collapse min-w-[1024px]">
@@ -62,12 +69,12 @@ export const PatientGrid: React.FC<PatientGridProps> = ({ patients }) => {
           </tr>
         </thead>
         <tbody className="text-sm">
-          {patients.map((patient) => (
+          {patients.map((patient: Patient) => (
             <tr key={patient.id} className="border-b border-cliniq-surface/50 hover:bg-cliniq-surface/20 transition-colors group">
               <td className={cn(
                 "w-1.5 p-0",
-                patient.risk_flags.some(f => f.severity === 'critical') ? "bg-cliniq-red" : 
-                patient.risk_flags.some(f => f.severity === 'watch') ? "bg-cliniq-amber" : "bg-cliniq-green"
+                patient.risk_flags.some((f: RiskFlag) => f.severity === 'critical') ? "bg-cliniq-red" : 
+                patient.risk_flags.some((f: RiskFlag) => f.severity === 'watch') ? "bg-cliniq-amber" : "bg-cliniq-green"
               )}></td>
               
               <td className="px-4 py-4 font-mono font-medium text-white">
@@ -96,7 +103,7 @@ export const PatientGrid: React.FC<PatientGridProps> = ({ patients }) => {
               
               <td className="px-4 py-4">
                 <div className="flex flex-wrap gap-1">
-                  {patient.risk_flags.map((flag, i) => (
+                  {patient.risk_flags.map((flag: RiskFlag, i: number) => (
                     <Badge key={i} className={cn(
                       "text-[9px] px-1.5 py-0 rounded font-bold border",
                       flag.color === 'red' ? "bg-cliniq-red/10 text-cliniq-red border-cliniq-red/30" :
