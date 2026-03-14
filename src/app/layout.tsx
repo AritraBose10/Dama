@@ -16,7 +16,11 @@ export const metadata: Metadata = {
   title: "ClinIQ | Real-time Clinical Command Center",
   description: "Next-generation clinical cockpit for real-time patient monitoring, AI-driven risk assessment, and workflow optimization.",
   icons: {
-    icon: "/favicon.png",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon.png", type: "image/png" },
+    ],
+    apple: "/favicon.png",
   },
 };
 
