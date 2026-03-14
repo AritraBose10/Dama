@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { HeaderStrip } from '@/components/layout/HeaderStrip';
-import { FilterTabBar, FilterTab } from '@/components/layout/FilterTabBar';
+import { FilterTabBar } from '@/components/layout/FilterTabBar';
 import { TopActionButtons } from '@/components/layout/TopActionButtons';
 import { PatientCardContainer } from '@/components/dashboard/PatientCards';
 import { PatientGrid } from '@/components/dashboard/PatientGrid';
@@ -12,8 +12,6 @@ import { SepsisWatch } from '@/components/dashboard/SepsisWatch';
 import { mockImaging, mockLabs, mockConsults } from '@/lib/mockData';
 
 export default function EDCommandPage() {
-  const [activeTab, setActiveTab] = useState<FilterTab>('ALL PATIENTS');
-
   return (
     <main className="flex flex-col h-screen bg-cliniq-navy overflow-hidden">
       {/* Fixed Header Area */}
@@ -33,10 +31,7 @@ export default function EDCommandPage() {
             />
           </div>
           
-          <FilterTabBar 
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-          />
+          <FilterTabBar />
           
           <PatientGrid />
           
