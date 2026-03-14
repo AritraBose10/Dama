@@ -19,5 +19,8 @@ export const generateLawContext = (patient: Patient) => {
 export const prompts = {
   RISK_SUMMARY: "Analyze the current census and provide a top 5 risk summary. Reference patients by initials. Format each line for a monospace terminal.",
   FAST_DISPO: "Predict the fastest disposition candidates from the current waiting room and roomed patients. Provide estimated minutes to discharge.",
-  PATIENT_ASSIST: (initials: string) => `Provide a clinical workflow recommendation for patient ${initials} based on their current status and risk flags. Focus on next steps and safety alerts.`
+  PATIENT_ASSIST: (ctx: any) => `Evaluate Bed ${ctx.initials} (${ctx.chief_complaint}, ESI ${ctx.esi}).
+Risk Flags: ${ctx.risk_flags.join(', ')}.
+Next Milestone: ${ctx.next_milestone}.
+Provide risk analysis and workflow next steps for this patient. Always maintain a monospace terminal style.`
 };

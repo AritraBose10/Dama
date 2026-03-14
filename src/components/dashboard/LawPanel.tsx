@@ -41,7 +41,7 @@ export const LAWPanel: React.FC = () => {
     try {
       const patient = contextPatient || mockPatients[0];
       const context = generateLawContext(patient);
-      const systemPrompt = prompts.patientAssist(context);
+      const systemPrompt = prompts.PATIENT_ASSIST(context);
 
       const stream = aiProvider.streamText(input, systemPrompt);
       
