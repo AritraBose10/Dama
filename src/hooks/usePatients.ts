@@ -1,8 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
 import { Patient } from '@/types';
-import { mockPatients } from '@/lib/mockData';
 import { useClinicalStore } from './useStore';
 
 const PATIENTS_QUERY_KEY = ['patients'];
@@ -14,48 +12,32 @@ export function usePatients() {
   const { data: rawPatients = [], isLoading, error } = useQuery({
     queryKey: PATIENTS_QUERY_KEY,
     queryFn: async () => {
-      // Demo logic: Return mock data
-      return mockPatients;
+      const response = await fetch('/api/patients');
+      if (!response.ok) throw new Error('Network response was not ok');
+      return response.json();
     },
   });
 
   const patients = useMemo(() => {
     switch (activeTab) {
       case 'ESI 1-2':
-        return rawPatients.filter(p => p.esi_level <= 2);
+        return rawPatients.filter((p: Patient) => p.esi_level <= 2);
       case 'WAITING ROOM':
-        return rawPatients.filter(p => p.is_waiting_room);
+        return rawPatients.filter((p: Patient) => p.is_waiting_room);
       case 'TOP RISK':
-        return [...rawPatients].sort((a, b) => b.risk_score - a.risk_score).slice(0, 5);
+        return [...rawPatients].sort((a: Patient, b: Patient) => b.risk_score - a.risk_score).slice(0, 5);
       case 'FAST TRACK':
-        return rawPatients.filter(p => p.complaint_category === 'FAST_TRACK');
+        return rawPatients.filter((p: Patient) => p.complaint_category === 'FAST_TRACK');
       case 'BOARDING':
-        return rawPatients.filter(p => p.status === 'BOARDING');
+        return rawPatients.filter((p: Patient) => p.status === 'BOARDING');
       case 'DISPO READY':
-        return rawPatients.filter(p => p.status === 'DISPO_READY');
+        return rawPatients.filter((p: Patient) => p.status === 'DISPO_READY');
       case 'DISCHARGED':
-        return rawPatients.filter(p => p.status === 'DISCHARGED');
+        return rawPatients.filter((p: Patient) => p.status === 'DISCHARGED');
       default:
         return rawPatients;
     }
   }, [rawPatients, activeTab]);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel('patients-live')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'patients' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: PATIENTS_QUERY_KEY });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
 
   return { patients, isLoading, error };
 }
