@@ -8,6 +8,9 @@ interface ClinicalState {
   setSelectedPatientId: (id: string | null) => void;
   isAiThinking: boolean;
   setIsAiThinking: (thinking: boolean) => void;
+  isShiftActive: boolean;
+  shiftStartTime: string | null;
+  toggleShift: () => void;
 }
 
 export const useClinicalStore = create<ClinicalState>((set) => ({
@@ -17,4 +20,10 @@ export const useClinicalStore = create<ClinicalState>((set) => ({
   setSelectedPatientId: (id) => set({ selectedPatientId: id }),
   isAiThinking: false,
   setIsAiThinking: (thinking) => set({ isAiThinking: thinking }),
+  isShiftActive: false,
+  shiftStartTime: null,
+  toggleShift: () => set((state) => ({ 
+    isShiftActive: !state.isShiftActive,
+    shiftStartTime: !state.isShiftActive ? new Date().toISOString() : null
+  })),
 }));
