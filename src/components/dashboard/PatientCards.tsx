@@ -8,9 +8,10 @@ interface PatientCardProps {
   bedLabel: string;
   summary: string;
   type: 'risk' | 'dispo';
+  source?: string;
 }
 
-export const PatientCard: React.FC<PatientCardProps> = ({ rank, initials, bedLabel, summary, type }) => {
+export const PatientCard: React.FC<PatientCardProps> = ({ rank, initials, bedLabel, summary, type, source }) => {
   const isRisk = type === 'risk';
   
   return (
@@ -34,6 +35,11 @@ export const PatientCard: React.FC<PatientCardProps> = ({ rank, initials, bedLab
       <div className="flex-1 p-2 flex flex-col justify-center min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-white font-bold text-sm tracking-wide">{initials}</span>
+          {source && source !== 'CLINIQ' && (
+            <span className="text-[8px] px-1 py-0 bg-cliniq-cyan/10 text-cliniq-cyan border border-cliniq-cyan/20 rounded-full lowercase">
+              {source}
+            </span>
+          )}
           <span className="text-muted-foreground text-[10px] uppercase">{bedLabel}</span>
         </div>
         <p className={cn(

@@ -84,9 +84,16 @@ export const PatientGrid: React.FC = () => {
               </td>
               
               <td className="px-4 py-4">
-                <div className="flex flex-col">
-                  <span className="text-white font-bold">{patient.initials}</span>
-                  <span className="text-[10px] text-muted-foreground">{patient.age} {patient.gender}</span>
+                <div className="flex flex-col select-none">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white tracking-tight">{patient.initials}</span>
+                    {patient.source && patient.source !== 'CLINIQ' && (
+                      <Badge className="text-[8px] px-1 py-0 bg-cliniq-cyan/10 text-cliniq-cyan border-cliniq-cyan/30 rounded lowercase">
+                        {patient.source}
+                      </Badge>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase">{patient.age} {patient.gender}</span>
                 </div>
               </td>
               

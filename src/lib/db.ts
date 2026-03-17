@@ -31,7 +31,9 @@ export function initDb() {
       sepsis_watch INTEGER,
       sepsis_bundle_started_at TEXT,
       anticoag_status TEXT,
-      is_waiting_room INTEGER
+      is_waiting_room INTEGER,
+      source TEXT DEFAULT 'CLINIQ',
+      external_id TEXT
     );
   `);
 
@@ -44,8 +46,9 @@ export function initDb() {
         chief_complaint, complaint_category, complaint_icon, arrived_at, 
         status, risk_score, risk_flags, owner_role, next_milestone_text, 
         next_milestone_eta, milestone_overdue, dispo_prediction_mins, 
-        sepsis_watch, sepsis_bundle_started_at, anticoag_status, is_waiting_room
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        sepsis_watch, sepsis_bundle_started_at, anticoag_status, is_waiting_room,
+        source
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     mockPatients.forEach(p => {
@@ -55,7 +58,8 @@ export function initDb() {
         p.status, p.risk_score, JSON.stringify(p.risk_flags), p.owner_role, 
         p.next_milestone_text, p.next_milestone_eta, p.milestone_overdue ? 1 : 0,
         p.dispo_prediction_mins, p.sepsis_watch ? 1 : 0, p.sepsis_bundle_started_at || null,
-        p.anticoag_status, p.is_waiting_room ? 1 : 0
+        p.anticoag_status, p.is_waiting_room ? 1 : 0,
+        'CLINIQ'
       );
     });
     console.log('Database seeded with mock patients.');

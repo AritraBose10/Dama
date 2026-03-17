@@ -42,6 +42,8 @@ export interface Patient {
   anticoag_status: AnticoagStatus;
   is_waiting_room: boolean;
   fast_track_category?: string;
+  source?: string;
+  external_id?: string;
 }
 
 export interface ImagingOrder {
