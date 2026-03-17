@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { HeaderStrip } from '@/components/layout/HeaderStrip';
 import { FilterTabBar } from '@/components/layout/FilterTabBar';
 import { TopActionButtons } from '@/components/layout/TopActionButtons';
@@ -9,9 +9,12 @@ import { PatientGrid } from '@/components/dashboard/PatientGrid';
 import { PendingRail } from '@/components/dashboard/PendingRail';
 import { LAWPanel } from '@/components/dashboard/LawPanel';
 import { SepsisWatch } from '@/components/dashboard/SepsisWatch';
+import { PatientEntryModal } from '@/components/dashboard/PatientEntryModal';
 import { mockImaging, mockLabs, mockConsults } from '@/lib/mockData';
 
 export default function EDCommandPage() {
+  const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+
   return (
     <main className="flex flex-col h-screen bg-cliniq-navy overflow-hidden">
       {/* Fixed Header Area */}
@@ -20,7 +23,7 @@ export default function EDCommandPage() {
       <div className="flex-1 flex overflow-hidden">
         {/* Main Workspace */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <TopActionButtons />
+          <TopActionButtons onAddPatient={() => setIsEntryModalOpen(true)} />
           
           <div className="flex items-center justify-between pr-4 bg-cliniq-navy">
             <PatientCardContainer />
@@ -45,6 +48,11 @@ export default function EDCommandPage() {
           consults={mockConsults}
         />
       </div>
+
+      <PatientEntryModal 
+        isOpen={isEntryModalOpen}
+        onClose={() => setIsEntryModalOpen(false)}
+      />
     </main>
   );
 }
