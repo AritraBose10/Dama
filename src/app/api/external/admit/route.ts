@@ -1,87 +1,143 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import db from '@/lib/db';
 import { RiskFlag } from '@/types';
 
-export async function POST(request: Request) {
+function getInitials(name: string) {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+}
+
+export async function POST(req: Request) {
   try {
-    const body = await request.json();
-    
-    // Support both old flat structure and new nested payload
-    const isNested = !!body.patient;
-    
-    let external_id, initials, age, gender, esi_level, chief_complaint, source;
-    let newRiskFlags: RiskFlag[] = [];
-    let risk_score = 0.5;
+    const body = await req.json();
 
-    if (isNested) {
-      const { patient, triage, assessment, safety_alerts } = body;
-      external_id = patient.patient_id;
-      // Extract initials from full name
-      const nameParts = patient.name.split(' ');
-      initials = nameParts.length > 1 
-        ? `${nameParts[0][0]}${nameParts[nameParts.length-1][0]}`.toUpperCase()
-        : patient.name.substring(0, 2).toUpperCase();
+    // Determine payload type
+    const isNewPayload = !!body.patient && !!body.triage && !!body.assessment;
+
+    if (!isNewPayload) {
+      // --- LEGACY PAYLOAD SUPPORT ---
+      const {
+        name, age, gender, esi_level, chief_complaint, arrived_at, 
+        status = 'WAITING', risk_score = 65, external_id, source = 'EXTERNAL_AI'
+      } = body;
+
+      const id = uuidv4();
+      const initials = getInitials(name);
       
-      age = patient.age;
-      gender = patient.gender;
-      esi_level = triage.acuity_level;
-      chief_complaint = triage.chief_complaint;
-      source = 'AGENTIC_HOST'; // Identify external advanced agents
+      const newRiskFlags: RiskFlag[] = [
+        { type: 'AI_ALERT', label: 'AI PRE-CHARTED', color: 'indigo', severity: 'watch' }
+      ];
 
-      // Map Safety Alerts to Risk Flags
-      if (safety_alerts && safety_alerts.severity === 'CRITICAL') {
-        newRiskFlags.push({ label: 'CRITICAL ALERT', color: 'red', severity: 'critical' });
-      } else if (safety_alerts && safety_alerts.severity === 'WARNING') {
-        newRiskFlags.push({ label: 'SAFETY WARN', color: 'yellow', severity: 'safety' });
+      // Assign initial bed for legacy
+      let bed_id = 'WR-01';
+      let bed_label = 'WR';
+      if (status !== 'WAITING') {
+        bed_id = 'B-14';
+        bed_label = '14';
       }
 
-      // Add AI Diagnosis flag if confidence is high
-      if (assessment && assessment.confidence_score > 80) {
-        newRiskFlags.push({ label: 'AI: ACS RISK', color: 'amber', severity: 'watch' });
-        risk_score = 0.85; // elevate score based on high confidence AI
-      }
-    } else {
-      // Legacy fallback
-      ({ external_id, initials, age, gender, esi_level = 3, chief_complaint, source = 'EXTERNAL_AGENT' } = body);
-      newRiskFlags.push({ label: 'EXT_ADMIT', color: 'amber', severity: 'watch' });
+      const next_milestone_text = 'MD Eval Appended';
+      const next_milestone_eta = 'Pending';
+      const owner_role = body.owner_role || 'Unassigned';
+
+      const insert = db.prepare(`
+        INSERT INTO patients (
+          id, initials, age, gender, bed_id, bed_label, esi_level, chief_complaint, 
+          complaint_category, complaint_icon, arrived_at, status, risk_score, risk_flags, 
+          owner_role, next_milestone_text, next_milestone_eta, milestone_overdue, 
+          dispo_prediction_mins, sepsis_watch, sepsis_bundle_started_at, anticoag_status, 
+          is_waiting_room, source, external_id
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      insert.run(
+        id, initials, age, gender, bed_id, bed_label, esi_level, chief_complaint, 
+        'CARDIAC', 'HEART', arrived_at, status, risk_score, JSON.stringify(newRiskFlags), 
+        owner_role, next_milestone_text, next_milestone_eta, 0, 180, 0, 
+        null, 'UNKNOWN', status === 'WAITING' ? 1 : 0, source, external_id || null
+      );
+
+      // 10. Generate alert for the admission
+      db.prepare(`
+        INSERT INTO alerts (id, patient_id, type, message, severity, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        uuidv4(), id, 'NEW_ADMISSION',
+        `New external admission: ${initials} (${chief_complaint})`,
+        esi_level <= 2 ? 'CRITICAL' : 'INFO',
+        new Date().toISOString()
+      );
+
+      return NextResponse.json({ 
+        success: true, 
+        message: 'External patient admitted successfully (Legacy)',
+        patient_id: id 
+      });
     }
 
-    if (!initials || !chief_complaint) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
+    // --- NEW COMPLEX PAYLOAD SUPPORT ---
+    const { patient, triage, assessment, safety_alerts } = body;
+    const { patient_id: external_id, name, age, gender } = patient;
+    const { acuity_level: esi_level, chief_complaint } = triage;
+    const source = 'AI_AGENT';
 
     const id = uuidv4();
-    const arrived_at = new Date().toISOString();
-    
-    // Determine status from ESI
+    const initials = getInitials(name);
+    const startTime = new Date();
+
+    // 1. Determine base status off ESI
     const status = esi_level <= 2 ? 'BOARDING' : 'WAITING';
-    const bed_id = status === 'BOARDING' ? 'TBD' : 'WR';
-    const bed_label = status === 'BOARDING' ? 'Boarding' : 'Waiting Room';
+    const bed_id = status === 'BOARDING' ? 'TB-1' : 'WR-1';
+    const bed_label = status === 'BOARDING' ? 'Trauma 1' : 'WR';
+
+    // 2. Generate initial risk flags from assessment and safety alerts
+    const riskFlags: RiskFlag[] = [
+      { type: 'AI_ALERT', label: 'AI PRE-CHARTED', color: 'indigo', severity: 'watch' }
+    ];
+
+    if (safety_alerts?.severity) {
+      if (safety_alerts.severity === 'high') {
+        riskFlags.push({ type: 'CRITICAL', label: 'CRITICAL ALERT', color: 'red', severity: 'critical' });
+      } else {
+        riskFlags.push({ type: 'WARNING', label: 'SAFETY WARN', color: 'amber', severity: 'warning' });
+      }
+    }
+
+    if (assessment?.confidence_score > 80) {
+      riskFlags.push({ type: 'WARNING', label: 'AI: ACS RISK', color: 'orange', severity: 'warning' });
+    }
+
+    const riskFlagsString = JSON.stringify(riskFlags);
     
-    const owner_role = 'ADMITTING';
-    const next_milestone_text = 'Triage Assessment';
-    const next_milestone_eta = new Date(Date.now() + 1800000).toISOString(); 
+    // 3. Convert confidence to risk score base
+    const riskScore = assessment?.confidence_score || 65;
 
-    const insert = db.prepare(`
+    // 4. Map complaint category (simple mapping)
+    const complaintCategory = 'CARDIAC'; 
+    const complaintIcon = 'HEART';
+
+    const next_milestone_text = status === 'WAITING' ? 'Triage Vitals' : 'MD Assessment';
+    const next_milestone_eta = '5m';
+
+    // 5. Insert properly
+    db.prepare(`
       INSERT INTO patients (
-        id, initials, age, gender, bed_id, bed_label, esi_level, 
-        chief_complaint, complaint_category, complaint_icon, arrived_at, 
-        status, risk_score, risk_flags, owner_role, next_milestone_text, 
-        next_milestone_eta, milestone_overdue, dispo_prediction_mins, 
-        sepsis_watch, anticoag_status, is_waiting_room, source, external_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    insert.run(
-      id, initials, age, gender, bed_id, bed_label, esi_level,
-      chief_complaint, 'CARDIAC', 'HEART', arrived_at,
-      status, risk_score, JSON.stringify(newRiskFlags), owner_role, 
-      next_milestone_text, next_milestone_eta, 0,
-      180, 0, 'UNKNOWN', status === 'WAITING' ? 1 : 0, source, external_id || null
+        id, initials, age, gender, bed_id, bed_label, esi_level, chief_complaint, 
+        complaint_category, complaint_icon, arrived_at, status, risk_score, risk_flags, 
+        owner_role, next_milestone_text, next_milestone_eta, milestone_overdue, 
+        dispo_prediction_mins, sepsis_watch, sepsis_bundle_started_at, anticoag_status, 
+        is_waiting_room, source, external_id
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id, initials, age, gender, bed_id, bed_label, esi_level, chief_complaint, 
+      complaintCategory, complaintIcon, startTime.toISOString(), status, riskScore, riskFlagsString, 
+      'Unassigned', next_milestone_text, next_milestone_eta, 0, 180, 0, 
+      null, 'UNKNOWN', status === 'WAITING' ? 1 : 0, source, external_id || null
     );
 
-    // 10. Generate alert for the admission
+    // 6. Generate alert for the admission
     db.prepare(`
       INSERT INTO alerts (id, patient_id, type, message, severity, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -101,6 +157,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('External Admission Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to process admission' }, { status: 500 });
   }
 }
