@@ -25,7 +25,8 @@ export async function GET() {
 
     return NextResponse.json(formattedPatients);
   } catch (error) {
-    console.error('Database Error:', error);
-    return NextResponse.json({ error: 'Failed to fetch patients' }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Database Error:', message);
+    return NextResponse.json({ error: 'Failed to fetch patients', detail: message }, { status: 500 });
   }
 }
