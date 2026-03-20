@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       const initials = getInitials(name);
       
       const newRiskFlags: RiskFlag[] = [
-        { type: 'AI_ALERT', label: 'AI PRE-CHARTED', color: 'indigo', severity: 'watch' }
+        { label: 'AI PRE-CHARTED', color: 'amber', severity: 'watch' }
       ];
 
       // Assign initial bed for legacy
@@ -93,19 +93,19 @@ export async function POST(req: Request) {
 
     // 2. Generate initial risk flags from assessment and safety alerts
     const riskFlags: RiskFlag[] = [
-      { type: 'AI_ALERT', label: 'AI PRE-CHARTED', color: 'indigo', severity: 'watch' }
+      { label: 'AI PRE-CHARTED', color: 'amber', severity: 'watch' }
     ];
 
     if (safety_alerts?.severity) {
       if (safety_alerts.severity === 'high') {
-        riskFlags.push({ type: 'CRITICAL', label: 'CRITICAL ALERT', color: 'red', severity: 'critical' });
+        riskFlags.push({ label: 'CRITICAL ALERT', color: 'red', severity: 'critical' });
       } else {
-        riskFlags.push({ type: 'WARNING', label: 'SAFETY WARN', color: 'amber', severity: 'warning' });
+        riskFlags.push({ label: 'SAFETY WARN', color: 'amber', severity: 'safety' });
       }
     }
 
     if (assessment?.confidence_score > 80) {
-      riskFlags.push({ type: 'WARNING', label: 'AI: ACS RISK', color: 'orange', severity: 'warning' });
+      riskFlags.push({ label: 'AI: ACS RISK', color: 'yellow', severity: 'safety' });
     }
 
     const riskFlagsString = JSON.stringify(riskFlags);
