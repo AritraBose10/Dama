@@ -1,17 +1,23 @@
 import { NextResponse } from 'next/server';
-import db, { initDb } from '@/lib/db';
-
-// Ensure DB is initialized
-initDb();
+import { supabase } from '@/lib/supabaseClient';
 
 export async function GET() {
   try {
-    const patients = db.prepare('SELECT * FROM patients').all();
+    const { data: patients, error } = await supabase
+      .from('patients')
+      .select('*')
+      .order('arrived_at', { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    // In Supabase, JSONB fields like `risk_flags` are returned as parsed JSON objects automatically!
+    // Booleans are also returned as native booleans, not 0/1 ints like SQLite!
     
-    // Parse JSON strings back to objects
-    const formattedPatients = patients.map((p: any) => ({
+    // We map them just to ensure consistency just in case, but no JSON parsing needed
+    const formattedPatients = (patients || []).map((p: any) => ({
       ...p,
-      risk_flags: JSON.parse(p.risk_flags),
       milestone_overdue: !!p.milestone_overdue,
       sepsis_watch: !!p.sepsis_watch,
       is_waiting_room: !!p.is_waiting_room

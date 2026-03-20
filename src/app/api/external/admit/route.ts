@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import db from '@/lib/db';
+import { supabase } from '@/lib/supabaseClient';
 import { RiskFlag } from '@/types';
 
 function getInitials(name: string) {
@@ -40,34 +40,25 @@ export async function POST(req: Request) {
       const next_milestone_eta = 'Pending';
       const owner_role = body.owner_role || 'Unassigned';
 
-      const insert = db.prepare(`
-        INSERT INTO patients (
-          id, initials, age, gender, bed_id, bed_label, esi_level, chief_complaint, 
-          complaint_category, complaint_icon, arrived_at, status, risk_score, risk_flags, 
-          owner_role, next_milestone_text, next_milestone_eta, milestone_overdue, 
-          dispo_prediction_mins, sepsis_watch, sepsis_bundle_started_at, anticoag_status, 
-          is_waiting_room, source, external_id
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      insert.run(
+      const { error: insertError } = await supabase.from('patients').insert([{
         id, initials, age, gender, bed_id, bed_label, esi_level, chief_complaint, 
-        'CARDIAC', 'HEART', arrived_at, status, risk_score, JSON.stringify(newRiskFlags), 
-        owner_role, next_milestone_text, next_milestone_eta, 0, 180, 0, 
-        null, 'UNKNOWN', status === 'WAITING' ? 1 : 0, source, external_id || null
-      );
+        complaint_category: 'CARDIAC', complaint_icon: 'HEART', arrived_at, status, 
+        risk_score, risk_flags: newRiskFlags, owner_role, next_milestone_text, 
+        next_milestone_eta, milestone_overdue: false, dispo_prediction_mins: 180, 
+        sepsis_watch: false, sepsis_bundle_started_at: null, anticoag_status: 'UNKNOWN', 
+        is_waiting_room: status === 'WAITING', source, external_id: external_id || null
+      }]);
+
+      if (insertError) throw insertError;
 
       // 10. Generate alert for the admission
-      db.prepare(`
-        INSERT INTO alerts (id, patient_id, type, message, severity, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(
-        uuidv4(), id, 'NEW_ADMISSION',
-        `New external admission: ${initials} (${chief_complaint})`,
-        esi_level <= 2 ? 'CRITICAL' : 'INFO',
-        new Date().toISOString()
-      );
+      await supabase.from('alerts').insert([{
+        id: uuidv4(), 
+        type: 'NEW_ADMISSION', 
+        title: 'New External Admission',
+        message: `New external admission: ${initials} (${chief_complaint})`, 
+        severity: esi_level <= 2 ? 'critical' : 'normal',
+      }]);
 
       return NextResponse.json({ 
         success: true, 
@@ -107,8 +98,6 @@ export async function POST(req: Request) {
     if (assessment?.confidence_score > 80) {
       riskFlags.push({ label: 'AI: ACS RISK', color: 'yellow', severity: 'safety' });
     }
-
-    const riskFlagsString = JSON.stringify(riskFlags);
     
     // 3. Convert confidence to risk score base
     const riskScore = assessment?.confidence_score || 65;
@@ -121,34 +110,26 @@ export async function POST(req: Request) {
     const next_milestone_eta = '5m';
 
     // 5. Insert properly
-    db.prepare(`
-      INSERT INTO patients (
+    const { error: patientInsertError } = await supabase.from('patients').insert([{
         id, initials, age, gender, bed_id, bed_label, esi_level, chief_complaint, 
-        complaint_category, complaint_icon, arrived_at, status, risk_score, risk_flags, 
-        owner_role, next_milestone_text, next_milestone_eta, milestone_overdue, 
-        dispo_prediction_mins, sepsis_watch, sepsis_bundle_started_at, anticoag_status, 
-        is_waiting_room, source, external_id
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      id, initials, age, gender, bed_id, bed_label, esi_level, chief_complaint, 
-      complaintCategory, complaintIcon, startTime.toISOString(), status, riskScore, riskFlagsString, 
-      'Unassigned', next_milestone_text, next_milestone_eta, 0, 180, 0, 
-      null, 'UNKNOWN', status === 'WAITING' ? 1 : 0, source, external_id || null
-    );
+        complaint_category: complaintCategory, complaint_icon: complaintIcon, 
+        arrived_at: startTime.toISOString(), status, risk_score: riskScore, 
+        risk_flags: riskFlags, owner_role: 'Unassigned', next_milestone_text, 
+        next_milestone_eta, milestone_overdue: false, dispo_prediction_mins: 180, 
+        sepsis_watch: false, sepsis_bundle_started_at: null, anticoag_status: 'UNKNOWN', 
+        is_waiting_room: status === 'WAITING', source, external_id: external_id || null
+    }]);
+
+    if (patientInsertError) throw patientInsertError;
 
     // 6. Generate alert for the admission
-    db.prepare(`
-      INSERT INTO alerts (id, patient_id, type, message, severity, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      uuidv4(),
-      id,
-      'NEW_ADMISSION',
-      `New external admission: ${initials} (${chief_complaint})`,
-      esi_level <= 2 ? 'CRITICAL' : 'INFO',
-      new Date().toISOString()
-    );
+    await supabase.from('alerts').insert([{
+        id: uuidv4(),
+        type: 'NEW_ADMISSION',
+        title: 'New External Admission',
+        message: `New external admission: ${initials} (${chief_complaint})`,
+        severity: esi_level <= 2 ? 'critical' : 'normal',
+    }]);
 
     return NextResponse.json({ 
       success: true, 

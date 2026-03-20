@@ -1,9 +1,17 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { supabase } from '@/lib/supabaseClient';
 
 export async function GET() {
   try {
-    const alerts = db.prepare('SELECT * FROM alerts ORDER BY created_at DESC LIMIT 50').all();
+    const { data: alerts, error } = await supabase
+      .from('alerts')
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      throw error;
+    }
     
     return NextResponse.json({ success: true, alerts });
   } catch (error) {

@@ -16,10 +16,11 @@ CREATE TABLE patients (
   roomed_at TIMESTAMPTZ,
   status TEXT NOT NULL CHECK (status IN ('WAITING', 'ROOMED', 'BOARDING', 'DISPO_READY', 'DISCHARGED')),
   risk_score INTEGER DEFAULT 0,
+  risk_flags JSONB DEFAULT '[]'::jsonb,
   owner_role TEXT NOT NULL,
   owner_user_id UUID,
   next_milestone_text TEXT,
-  next_milestone_eta TIMESTAMPTZ,
+  next_milestone_eta TEXT,
   milestone_overdue BOOLEAN DEFAULT FALSE,
   ai_suggestion TEXT,
   dispo_prediction_mins INTEGER,
@@ -28,6 +29,8 @@ CREATE TABLE patients (
   anticoag_status TEXT DEFAULT 'NONE',
   is_waiting_room BOOLEAN DEFAULT FALSE,
   fast_track_category TEXT,
+  source VARCHAR(50) DEFAULT 'INTERNAL',
+  external_id VARCHAR(100) UNIQUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
