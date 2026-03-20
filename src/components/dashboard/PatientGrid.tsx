@@ -104,7 +104,7 @@ export const PatientGrid: React.FC = () => {
           </tr>
         </thead>
         <tbody className="divide-y divide-cliniq-surface/30">
-          {filteredPatients.map((patient) => (
+          {filteredPatients.map((patient: Patient) => (
             <tr 
               key={patient.id}
               onClick={() => setSelectedPatientId(patient.id)}
