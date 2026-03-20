@@ -9,7 +9,7 @@ export function usePatients() {
   const queryClient = useQueryClient();
   const activeTab = useClinicalStore((state) => state.activeTab);
 
-  const { data: rawPatients = [], isLoading, error } = useQuery({
+  const { data: rawPatients = [], isLoading, error } = useQuery<Patient[]>({
     queryKey: PATIENTS_QUERY_KEY,
     queryFn: async () => {
       const response = await fetch('/api/patients');
