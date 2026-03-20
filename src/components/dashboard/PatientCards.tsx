@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePatients } from '@/hooks/usePatients';
 
 interface PatientCardProps {
   rank?: number;
@@ -54,19 +55,45 @@ export const PatientCard: React.FC<PatientCardProps> = ({ rank, initials, bedLab
 };
 
 export const PatientCardContainer: React.FC = () => {
+  const { patients } = usePatients();
+  
+  // Dynamically calculate top 3 risk patients
+  const topRisk = [...patients]
+    .sort((a, b) => b.risk_score - a.risk_score)
+    .slice(0, 3);
+    
+  // Dynamically calculate ready for dispo (DISPO_READY or lower risk)
+  const readyDispo = patients
+    .filter(p => p.status === 'DISPO_READY')
+    .slice(0, 2);
+
   return (
     <div className="flex items-center gap-4 px-4 py-2 bg-cliniq-navy overflow-x-auto no-scrollbar">
       <div className="flex items-center gap-2">
-        <PatientCard rank={1} initials="R.T." bedLabel="BED 4" summary="Stroke - CTA unread 35m" type="risk" />
-        <PatientCard rank={2} initials="J.S." bedLabel="BED 12" summary="ACS - delta trop pending" type="risk" />
-        <PatientCard rank={3} initials="M.K." bedLabel="BED 7" summary="Ectopic - pending US" type="risk" />
+        {topRisk.map((p, i) => (
+          <PatientCard 
+            key={p.id}
+            rank={i + 1} 
+            initials={p.initials} 
+            bedLabel={p.bed_label || 'WR'} 
+            summary={p.chief_complaint} 
+            type="risk" 
+          />
+        ))}
       </div>
       
-      <div className="w-px h-12 bg-cliniq-surface mx-2 shrink-0" />
+      {readyDispo.length > 0 && <div className="w-px h-12 bg-cliniq-surface mx-2 shrink-0" />}
       
       <div className="flex items-center gap-2">
-        <PatientCard initials="A.B." bedLabel="BED 15" summary="Laceration - repair + AVS" type="dispo" />
-        <PatientCard initials="WR Pts" bedLabel="x3" summary="URI / Strain / GI - fast track" type="dispo" />
+        {readyDispo.map(p => (
+          <PatientCard 
+            key={p.id}
+            initials={p.initials} 
+            bedLabel={p.bed_label || 'WR'} 
+            summary={p.chief_complaint} 
+            type="dispo" 
+          />
+        ))}
       </div>
     </div>
   );

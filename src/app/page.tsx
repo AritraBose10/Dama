@@ -10,10 +10,14 @@ import { PendingRail } from '@/components/dashboard/PendingRail';
 import { LAWPanel } from '@/components/dashboard/LawPanel';
 import { SepsisWatch } from '@/components/dashboard/SepsisWatch';
 import { PatientEntryModal } from '@/components/dashboard/PatientEntryModal';
-import { mockImaging, mockLabs, mockConsults } from '@/lib/mockData';
+import { usePatients } from '@/hooks/usePatients';
 
 export default function EDCommandPage() {
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+  const { patients } = usePatients();
+  
+  // Find highest risk sepsis patient dynamically
+  const sepsisPatient = patients.find(p => p.sepsis_watch) || patients[0];
 
   return (
     <main className="flex flex-col h-screen bg-cliniq-navy overflow-hidden">
@@ -27,11 +31,13 @@ export default function EDCommandPage() {
           
           <div className="flex items-center justify-between pr-4 bg-cliniq-navy">
             <PatientCardContainer />
-            <SepsisWatch 
-              patientInitials="R.T."
-              lactateValue="4.2"
-              bundleClockStartedAt={new Date(Date.now() - 1800000).toISOString()}
-            />
+            {sepsisPatient && (
+              <SepsisWatch 
+                patientInitials={sepsisPatient.initials}
+                lactateValue={sepsisPatient.sepsis_watch ? "4.2" : "--"}
+                bundleClockStartedAt={sepsisPatient.sepsis_bundle_started_at || new Date().toISOString()}
+              />
+            )}
           </div>
           
           <FilterTabBar />
@@ -41,11 +47,11 @@ export default function EDCommandPage() {
           <LAWPanel />
         </div>
 
-        {/* Right Rail */}
+        {/* Right Rail - Mocked for now but structure is ready */}
         <PendingRail 
-          imaging={mockImaging}
-          labs={mockLabs}
-          consults={mockConsults}
+          imaging={[]}
+          labs={[]}
+          consults={[]}
         />
       </div>
 

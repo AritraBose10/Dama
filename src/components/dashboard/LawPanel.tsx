@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { aiProvider } from '@/lib/ai/provider';
 import { generateLawContext, prompts } from '@/lib/ai/prompts';
-import { mockPatients } from '@/lib/mockData';
+import { usePatients } from '@/hooks/usePatients';
 import { useClinicalStore } from '@/hooks/useStore';
+import { Patient } from '@/types';
 
 interface Message {
   id: string;
@@ -14,16 +15,27 @@ interface Message {
 
 export const LAWPanel: React.FC = () => {
   const { selectedPatientId, setIsAiThinking } = useClinicalStore();
-  const [messages, setMessages] = useState<Message[]>([
-    { id: 'initial-0', role: 'system', text: "Top 5 highest risk:", timestamp: new Date() },
-    { id: 'initial-1', role: 'system', text: "R.T. Bed 4 — Stroke + sepsis (lactate 4.2, INR 3.1, CT unread 35m)", timestamp: new Date() },
-    { id: 'initial-2', role: 'system', text: "J.S. Bed 12 — ACS rule-out, delta trop pending", timestamp: new Date() },
-    { id: 'initial-3', role: 'system', text: "M.K. Bed 7 — Ectopic rule-out, positive UPT, no US result yet", timestamp: new Date() },
-    { id: 'initial-4', role: 'system', text: "WR — Triage incomplete for 2 patients", timestamp: new Date() },
-    { id: 'initial-5', role: 'system', text: "A.B. Bed 15 — Low risk but verify anticoag status before repair", timestamp: new Date() },
-    { id: 'initial-6', role: 'system', text: "", timestamp: new Date() },
-    { id: 'initial-7', role: 'system', text: "Ready for input...", timestamp: new Date() }
-  ]);
+  const { patients } = usePatients();
+  const [messages, setMessages] = useState<Message[]>([]);
+  
+  // Set initial system messages based on live data
+  useEffect(() => {
+    if (patients.length > 0 && messages.length === 0) {
+      const topRisk = [...patients].sort((a, b) => b.risk_score - a.risk_score).slice(0, 3);
+      const systemMsgs: Message[] = [
+        { id: 'h-1', role: 'system', text: "Top Clinical Risks:", timestamp: new Date() },
+        ...topRisk.map((p, i) => ({
+          id: `p-${p.id}`,
+          role: 'system' as const,
+          text: `${p.initials} ${p.bed_label || 'WR'} — ${p.chief_complaint} (Risk: ${p.risk_score})`,
+          timestamp: new Date()
+        })),
+        { id: 'sep', role: 'system', text: "", timestamp: new Date() },
+        { id: 'ready', role: 'system', text: "Ready for input...", timestamp: new Date() }
+      ];
+      setMessages(systemMsgs);
+    }
+  }, [patients, messages.length]);
   
   const [inputText, setInputText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -39,7 +51,8 @@ export const LAWPanel: React.FC = () => {
     setMessages(prev => [...prev, { id: aiMessageId, role: 'ai', text: '> Processing...', timestamp: new Date() }]);
     
     try {
-      const patient = contextPatient || mockPatients[0];
+      const patient = contextPatient || patients.find(p => p.id === selectedPatientId) || patients[0];
+      if (!patient) throw new Error('No patient context');
       const context = generateLawContext(patient);
       const systemPrompt = prompts.PATIENT_ASSIST(context);
 
@@ -73,7 +86,7 @@ export const LAWPanel: React.FC = () => {
 
   useEffect(() => {
     if (selectedPatientId) {
-      const patient = mockPatients.find(p => p.id === selectedPatientId);
+      const patient = patients.find(p => p.id === selectedPatientId);
       if (patient) {
         setMessages(prev => [...prev, {
           id: `usr-${Date.now()}`,
@@ -84,7 +97,7 @@ export const LAWPanel: React.FC = () => {
         triggerAI(`Evaluate risk and next steps for patient in ${patient.bed_label || 'current bed'}. Current complaint: ${patient.chief_complaint}.`, patient);
       }
     }
-  }, [selectedPatientId]);
+  }, [selectedPatientId, patients]);
 
   useEffect(() => {
     if (scrollRef.current) {
