@@ -14,8 +14,65 @@ export interface RiskFlag {
   severity: 'critical' | 'watch' | 'safety' | 'normal';
 }
 
+export interface Vitals {
+  blood_pressure?: string;
+  heart_rate?: number;
+  respiratory_rate?: number;
+  oxygen_saturation?: number;
+  temperature_c?: number;
+  pain_scale?: number;
+  last_updated?: string;
+}
+
+export interface DifferentialDx {
+  disease: string;
+  probability: number;
+  reasoning: string;
+}
+
+export interface Medication {
+  name: string;
+  dosage: string;
+  frequency: string;
+  route: string;
+  duration?: string;
+  status?: string;
+  note?: string;
+  monitoring?: string;
+  age_adjustment?: string | null;
+  renal_adjustment?: string | null;
+  hepatic_adjustment?: string | null;
+}
+
+export interface Procedure {
+  name: string;
+  type: string;
+  timing: string;
+  status: string;
+  indications?: string[];
+  sequence?: string;
+}
+
+export interface TreatmentPlan {
+  approach?: string;
+  medications?: Medication[];
+  procedures?: Procedure[];
+  supportive_care?: string[];
+  monitoring?: string[];
+  complications_to_watch?: string[];
+  follow_up_tests?: string[];
+  notes?: string;
+}
+
+export interface DispositionPlan {
+  disposition: string;
+  level: string;
+  reasoning: string[];
+}
+
 export interface Patient {
   id: string;
+  name?: string;
   initials: string;
   age: number;
   gender: string;
@@ -44,6 +101,19 @@ export interface Patient {
   fast_track_category?: string;
   source?: string;
   external_id?: string;
+  // Clinical enrichment
+  vitals?: Vitals;
+  differential_diagnosis?: DifferentialDx[];
+  predicted_diagnosis?: string;
+  ground_truth_diagnosis?: string;
+  key_findings?: string;
+  clinical_reasoning?: string;
+  treatment_plan?: TreatmentPlan;
+  allergies?: string[];
+  pmh?: string[];
+  associated_symptoms?: string[];
+  disposition_plan?: DispositionPlan;
+  safety_conflicts?: string[];
 }
 
 export interface ImagingOrder {
