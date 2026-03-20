@@ -11,7 +11,8 @@ export type FilterTab =
   | 'MY PATIENTS' 
   | 'BOARDING' 
   | 'DISPO READY' 
-  | 'DISCHARGED';
+  | 'DISCHARGED'
+  | 'NOTIFICATIONS';
 
 const tabs: FilterTab[] = [
   'ALL PATIENTS',
@@ -22,7 +23,8 @@ const tabs: FilterTab[] = [
   'MY PATIENTS',
   'BOARDING',
   'DISPO READY',
-  'DISCHARGED'
+  'DISCHARGED',
+  'NOTIFICATIONS'
 ];
 
 export const FilterTabBar: React.FC = () => {

@@ -35,6 +35,15 @@ export function initDb() {
       source TEXT DEFAULT 'CLINIQ',
       external_id TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS alerts (
+      id TEXT PRIMARY KEY,
+      patient_id TEXT,
+      type TEXT,
+      message TEXT,
+      severity TEXT,
+      created_at TEXT
+    );
   `);
 
   // Simple seed logic

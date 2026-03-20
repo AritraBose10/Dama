@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { 
   Circle, 
@@ -8,164 +10,170 @@ import {
   Clock, 
   Smartphone,
   Pencil,
-  Monitor
+  Monitor,
+  Heart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { Patient, RiskFlag, EsiLevel } from '@/types';
+import { Patient, EsiLevel } from '@/types';
 import { usePatients } from '@/hooks/usePatients';
 import { useClinicalStore } from '@/hooks/useStore';
+import { NotificationList } from './NotificationList';
 
 const EsiBadge: React.FC<{ level: EsiLevel }> = ({ level }) => {
   const colors = {
-    1: 'bg-cliniq-red border-cliniq-red',
-    2: 'bg-orange-600 border-orange-600',
-    3: 'bg-cliniq-amber border-cliniq-amber',
-    4: 'bg-cliniq-yellow border-cliniq-yellow',
-    5: 'bg-cliniq-green border-cliniq-green',
+    1: 'bg-red-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.4)]',
+    2: 'bg-orange-500 text-white shadow-[0_0_12px_rgba(249,115,22,0.4)]',
+    3: 'bg-amber-500 text-cliniq-navy font-bold',
+    4: 'bg-green-500 text-white',
+    5: 'bg-cliniq-surface text-muted-foreground'
   };
 
   return (
-    <div className={cn("w-6 h-6 rounded flex items-center justify-center text-white text-[10px] font-bold border", colors[level])}>
-      {level}
-    </div>
+    <span className={cn(
+      "px-2 py-0.5 rounded text-[10px] font-bold shrink-0",
+      colors[level] || colors[5]
+    )}>
+      ESI {level}
+    </span>
   );
 };
 
-const ComplaintIcon: React.FC<{ icon: string }> = ({ icon }) => {
-  switch (icon) {
-    case 'BRAIN': return <Brain className="w-3 h-3 text-cliniq-cyan" />;
-    case 'RED_DOT': return <Circle className="w-3 h-3 fill-cliniq-red text-cliniq-red" />;
-    case 'DEVICE': return <Smartphone className="w-3 h-3 text-cliniq-cyan" />;
-    default: return <Activity className="w-3 h-3 text-cliniq-cyan" />;
-  }
+const RiskScoreIndicator: React.FC<{ score: number }> = ({ score }) => {
+  const getColor = (s: number) => {
+    if (s >= 80) return 'text-red-500';
+    if (s >= 60) return 'text-orange-500';
+    if (s >= 40) return 'text-amber-500';
+    return 'text-cliniq-cyan';
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-1 bg-cliniq-surface rounded-full overflow-hidden min-w-[40px]">
+        <div 
+          className={cn("h-full transition-all duration-500", getColor(score).replace('text-', 'bg-'))}
+          style={{ width: `${score}%` }}
+        />
+      </div>
+      <span className={cn("text-[10px] font-bold font-mono min-w-[24px]", getColor(score))}>
+        {Math.round(score)}
+      </span>
+    </div>
+  );
 };
 
 export const PatientGrid: React.FC = () => {
   const { patients, isLoading } = usePatients();
   const setSelectedPatientId = useClinicalStore(state => state.setSelectedPatientId);
+  const activeTab = useClinicalStore(state => state.activeTab);
+
+  const filteredPatients = patients.filter((p: Patient) => {
+    if (activeTab === 'ALL PATIENTS' || activeTab === 'NOTIFICATIONS') return true;
+    if (activeTab === 'WAITING ROOM') return p.status === 'WAITING';
+    if (activeTab === 'BOARDING') return p.status === 'BOARDING';
+    if (activeTab === 'ESI 1-2') return p.esi_level <= 2;
+    if (activeTab === 'TOP RISK') return p.risk_score >= 80;
+    return true;
+  });
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-cliniq-navy text-cliniq-cyan font-mono animate-pulse">
-        LOADING TRACKER...
+      <div className="flex-1 flex items-center justify-center text-cliniq-cyan">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cliniq-cyan"></div>
       </div>
     );
   }
 
+  if (activeTab === 'NOTIFICATIONS') {
+    return <NotificationList />;
+  }
+
   return (
-    <div className="flex-1 overflow-auto bg-cliniq-navy">
+    <div className="flex-1 overflow-auto bg-cliniq-navy relative border-t border-cliniq-surface">
       <table className="w-full text-left border-collapse min-w-[1024px]">
         <thead className="sticky top-0 bg-cliniq-navy z-10">
           <tr className="border-b border-cliniq-surface text-[10px] text-muted-foreground font-bold tracking-widest uppercase">
-            <th className="w-1.5 p-0"></th>
-            <th className="px-4 py-3">Bed</th>
-            <th className="px-4 py-3">Patient</th>
-            <th className="px-2 py-3">ESI</th>
-            <th className="px-4 py-3">Complaint</th>
-            <th className="px-4 py-3">Risk Flags</th>
-            <th className="px-4 py-3">Time In</th>
-            <th className="px-4 py-3">Next Milestone</th>
-            <th className="px-4 py-3">Owner</th>
-            <th className="px-4 py-3">AI Assist</th>
+            <th className="px-4 py-3 font-bold">Patient</th>
+            <th className="px-4 py-3 font-bold text-center">ESI</th>
+            <th className="px-4 py-3 font-bold">Room/Bed</th>
+            <th className="px-4 py-3 font-bold">Chief Complaint</th>
+            <th className="px-4 py-3 font-bold">Status/Next Step</th>
+            <th className="px-4 py-3 font-bold">Provider</th>
+            <th className="px-4 py-3 font-bold">Risk Score</th>
+            <th className="px-4 py-3 font-bold">Actions</th>
           </tr>
         </thead>
-        <tbody className="text-sm">
-          {patients.map((patient: Patient) => (
-            <tr key={patient.id} className="border-b border-cliniq-surface/50 hover:bg-cliniq-surface/20 transition-colors group">
-              <td className={cn(
-                "w-1.5 p-0",
-                patient.risk_flags.some((f: RiskFlag) => f.severity === 'critical') ? "bg-cliniq-red" : 
-                patient.risk_flags.some((f: RiskFlag) => f.severity === 'watch') ? "bg-cliniq-amber" : "bg-cliniq-green"
-              )}></td>
-              
-              <td className="px-4 py-4 font-mono font-medium text-white">
-                {patient.bed_label || '--'}
-              </td>
-              
+        <tbody className="divide-y divide-cliniq-surface/30">
+          {filteredPatients.map((patient) => (
+            <tr 
+              key={patient.id}
+              onClick={() => setSelectedPatientId(patient.id)}
+              className="group hover:bg-cliniq-surface/20 transition-colors cursor-pointer"
+            >
               <td className="px-4 py-4">
-                <div className="flex flex-col select-none">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white tracking-tight">{patient.initials}</span>
-                    {patient.source && patient.source !== 'CLINIQ' && (
-                      <Badge className="text-[8px] px-1 py-0 bg-cliniq-cyan/10 text-cliniq-cyan border-cliniq-cyan/30 rounded lowercase">
-                        {patient.source}
-                      </Badge>
-                    )}
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-cliniq-surface flex items-center justify-center text-xs font-bold text-cliniq-cyan group-hover:scale-110 transition-transform">
+                    {patient.initials}
                   </div>
-                  <span className="text-[10px] text-muted-foreground font-medium uppercase">{patient.age} {patient.gender}</span>
+                  <div>
+                    <div className="text-sm font-bold text-cliniq-white">{patient.initials}</div>
+                    <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">
+                      {patient.age}{patient.gender} • ARR {new Date(patient.arrived_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
                 </div>
               </td>
-              
-              <td className="px-2 py-4">
+              <td className="px-4 py-4 text-center">
                 <EsiBadge level={patient.esi_level} />
               </td>
-              
               <td className="px-4 py-4">
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-cliniq-surface/60 rounded border border-cliniq-surface group-hover:border-cliniq-cyan/30 transition-colors">
-                  <ComplaintIcon icon={patient.complaint_icon} />
-                  <span className="text-[11px] font-bold text-slate-200 uppercase whitespace-nowrap">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-cliniq-cyan animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
+                  <span className="text-sm font-bold text-cliniq-white">{patient.bed_label}</span>
+                </div>
+              </td>
+              <td className="px-4 py-4">
+                <div className="flex items-center gap-2">
+                  <Heart className="w-3 h-3 text-red-500" />
+                  <span className="text-xs font-medium text-cliniq-white max-w-[150px] truncate">
                     {patient.chief_complaint}
                   </span>
                 </div>
               </td>
-              
               <td className="px-4 py-4">
-                <div className="flex flex-wrap gap-1">
-                  {patient.risk_flags.map((flag: RiskFlag, i: number) => (
-                    <Badge key={i} className={cn(
-                      "text-[9px] px-1.5 py-0 rounded font-bold border",
-                      flag.color === 'red' ? "bg-cliniq-red/10 text-cliniq-red border-cliniq-red/30" :
-                      flag.color === 'amber' ? "bg-cliniq-amber/10 text-cliniq-amber border-cliniq-amber/30" :
-                      "bg-cliniq-yellow/10 text-cliniq-yellow border-cliniq-yellow/30"
-                    )}>
-                      {flag.label}
-                    </Badge>
-                  ))}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-3 h-3 text-cliniq-cyan" />
+                    <span className="text-xs font-bold text-cliniq-cyan uppercase tracking-wider">{patient.status}</span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground font-medium truncate max-w-[180px]">
+                    {patient.next_milestone_text} {patient.next_milestone_eta && `• ETA ${patient.next_milestone_eta}`}
+                  </div>
                 </div>
               </td>
-              
               <td className="px-4 py-4">
-                <div className="flex flex-col">
-                  <span className={cn(
-                    "font-mono text-sm font-bold",
-                    patient.milestone_overdue ? "text-cliniq-red" : "text-cliniq-green"
-                  )}>
-                    {new Date(patient.arrived_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
-                  </span>
-                  {patient.milestone_overdue && <span className="text-[9px] font-bold text-cliniq-red uppercase">Overdue</span>}
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded bg-cliniq-surface/50 flex items-center justify-center text-[10px] font-bold text-muted-foreground uppercase">
+                    MD
+                  </div>
+                  <span className="text-xs font-medium text-cliniq-white uppercase">{patient.owner_role}</span>
                 </div>
               </td>
-              
               <td className="px-4 py-4">
-                <div className="flex flex-col leading-tight max-w-[150px]">
-                  <span className="text-[11px] font-bold text-white truncate">{patient.next_milestone_text}</span>
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    ≈ {new Date(patient.next_milestone_eta).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
-                  </span>
+                <RiskScoreIndicator score={patient.risk_score} />
+              </td>
+              <td className="px-4 py-4">
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button className="p-1.5 hover:bg-cliniq-cyan/20 rounded-lg text-muted-foreground hover:text-cliniq-cyan transition-colors">
+                    <Smartphone className="w-4 h-4" />
+                  </button>
+                  <button className="p-1.5 hover:bg-cliniq-cyan/20 rounded-lg text-muted-foreground hover:text-cliniq-cyan transition-colors">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button className="p-1.5 hover:bg-cliniq-cyan/20 rounded-lg text-muted-foreground hover:text-cliniq-cyan transition-colors">
+                    <Monitor className="w-4 h-4" />
+                  </button>
                 </div>
-              </td>
-              
-              <td className="px-4 py-4">
-                <Badge className={cn(
-                  "text-[10px] px-2 py-0.5 rounded-full font-bold",
-                  patient.owner_role === 'MD' ? "bg-blue-600/20 text-blue-400 border-blue-500/30" :
-                  patient.owner_role === 'PA' ? "bg-cliniq-green/20 text-cliniq-green border-cliniq-green/30" :
-                  patient.owner_role === 'RN' ? "bg-purple-600/20 text-purple-400 border-purple-500/30" :
-                  "bg-cliniq-navy border-cliniq-cyan/30 text-cliniq-cyan"
-                )}>
-                  {patient.owner_role}
-                </Badge>
-              </td>
-              
-              <td className="px-4 py-4">
-                <button 
-                  onClick={() => setSelectedPatientId(patient.id)}
-                  className="flex items-center gap-1.5 px-3 py-1 bg-cliniq-navy border border-cliniq-cyan/50 hover:bg-cliniq-cyan/10 rounded text-[10px] font-bold text-cliniq-cyan uppercase tracking-wider transition-all"
-                >
-                  <Activity className="w-3 h-3" />
-                  Assist
-                </button>
               </td>
             </tr>
           ))}
