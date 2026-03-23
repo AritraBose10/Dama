@@ -7,6 +7,7 @@ import { Patient, RiskFlag, Vitals } from '@/types';
 import { useClinicalStore } from '@/hooks/useStore';
 import { Sparkline } from './Sparkline';
 import { HandoffModal } from './HandoffModal';
+import { TaskBoard } from './TaskBoard';
 
 interface PatientDetailDrawerProps {
   patients: Patient[];
@@ -284,6 +285,11 @@ export const PatientDetailDrawer: React.FC<PatientDetailDrawerProps> = ({ patien
                   valueClass={patient.anticoag_status === 'CONFIRMED' ? 'text-red-400 font-bold' : patient.anticoag_status === 'UNKNOWN' ? 'text-amber-400' : 'text-green-400'} />
                 <InfoRow label="Risk Score" value={Math.round(patient.risk_score)}
                   valueClass={patient.risk_score >= 80 ? 'text-red-400 font-bold' : patient.risk_score >= 60 ? 'text-orange-400' : 'text-cliniq-cyan'} />
+              </Section>
+
+              {/* Tasks & Orders */}
+              <Section title="Tasks & Orders">
+                <TaskBoard patientId={patient.id} />
               </Section>
 
               {/* Treatment Plan */}

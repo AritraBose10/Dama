@@ -259,12 +259,58 @@ export async function POST(req: Request) {
       severity: alertSeverity,
     }]);
 
+    // Phase 14: Task Creation
+    const tasksToInsert: any[] = [];
+    if (treatmentPlan?.medications?.length) {
+      treatmentPlan.medications.forEach((med: any) => {
+        tasksToInsert.push({
+          patient_id: id,
+          type: 'medication',
+          title: `Administer ${med.name}`,
+          details: `${med.dosage || ''} ${med.route || ''} ${med.frequency || ''}`.trim(),
+          status: 'PENDING',
+          assigned_role: 'RN',
+        });
+      });
+    }
+
+    if (treatmentPlan?.procedures?.length) {
+      treatmentPlan.procedures.forEach((proc: any) => {
+        tasksToInsert.push({
+          patient_id: id,
+          type: 'procedure',
+          title: proc.name,
+          details: proc.timing || proc.indications,
+          status: 'PENDING',
+          assigned_role: proc.type === 'surgical' || proc.type === 'invasive' ? 'MD' : 'RN',
+        });
+      });
+    }
+
+    if (treatmentPlan?.monitoring?.length) {
+      treatmentPlan.monitoring.forEach((mon: string) => {
+        tasksToInsert.push({
+          patient_id: id,
+          type: 'monitoring',
+          title: mon,
+          status: 'PENDING',
+          assigned_role: 'RN',
+        });
+      });
+    }
+
+    if (tasksToInsert.length > 0) {
+      const { error: taskError } = await supabase.from('clinical_tasks').insert(tasksToInsert);
+      if (taskError) console.error("Task insert error:", taskError);
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Rich clinical payload admitted successfully',
       patient_id: id,
       labs_inserted: diagnostics?.labs?.length || 0,
       imaging_inserted: diagnostics?.imaging?.length || 0,
+      tasks_inserted: tasksToInsert.length,
     });
 
   } catch (error) {
