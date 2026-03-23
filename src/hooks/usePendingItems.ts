@@ -9,7 +9,7 @@ export function usePendingItems() {
       if (!res.ok) return [];
       return res.json();
     },
-    refetchInterval: 15000,
+    refetchInterval: 10000,
   });
 
   const { data: labs = [] } = useQuery<LabResult[]>({
@@ -19,7 +19,7 @@ export function usePendingItems() {
       if (!res.ok) return [];
       return res.json();
     },
-    refetchInterval: 15000,
+    refetchInterval: 10000,
   });
 
   const { data: consults = [] } = useQuery<Consult[]>({
@@ -29,7 +29,7 @@ export function usePendingItems() {
       if (!res.ok) return [];
       return res.json();
     },
-    refetchInterval: 15000,
+    refetchInterval: 10000,
   });
 
   return { imaging, labs, consults };
