@@ -3,8 +3,9 @@
 import React from 'react';
 import { X, Activity, Clock, ShieldAlert, User, Zap, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Patient, RiskFlag } from '@/types';
+import { Patient, RiskFlag, Vitals } from '@/types';
 import { useClinicalStore } from '@/hooks/useStore';
+import { Sparkline } from './Sparkline';
 
 interface PatientDetailDrawerProps {
   patients: Patient[];
@@ -157,23 +158,42 @@ export const PatientDetailDrawer: React.FC<PatientDetailDrawerProps> = ({ patien
                 <Section title="Vitals">
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { label: 'BP', value: patient.vitals.blood_pressure },
-                      { label: 'HR', value: patient.vitals.heart_rate ? `${patient.vitals.heart_rate} bpm` : undefined },
-                      { label: 'RR', value: patient.vitals.respiratory_rate ? `${patient.vitals.respiratory_rate}/min` : undefined },
-                      { label: 'SpO₂', value: patient.vitals.oxygen_saturation ? `${patient.vitals.oxygen_saturation}%` : undefined },
-                      { label: 'Temp', value: patient.vitals.temperature_c ? `${patient.vitals.temperature_c}°C` : undefined },
-                      { label: 'Pain', value: patient.vitals.pain_scale !== undefined ? `${patient.vitals.pain_scale}/10` : undefined },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="p-2 rounded-lg bg-cliniq-surface/40 border border-cliniq-surface/60 text-center">
-                        <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{label}</div>
-                        <div className={cn("text-sm font-bold mt-0.5", !value && 'text-muted-foreground/40')}>
-                          {value || '—'}
+                      { label: 'BP', value: patient.vitals.blood_pressure, histKey: 'blood_pressure' as const },
+                      { label: 'HR', value: patient.vitals.heart_rate ? `${patient.vitals.heart_rate} bpm` : undefined, histKey: 'heart_rate' as const, critHigh: 120, critLow: 50 },
+                      { label: 'RR', value: patient.vitals.respiratory_rate ? `${patient.vitals.respiratory_rate}/min` : undefined, histKey: 'respiratory_rate' as const, critHigh: 24 },
+                      { label: 'SpO₂', value: patient.vitals.oxygen_saturation ? `${patient.vitals.oxygen_saturation}%` : undefined, histKey: 'oxygen_saturation' as const, critLow: 92 },
+                      { label: 'Temp', value: patient.vitals.temperature_c ? `${patient.vitals.temperature_c}°C` : undefined, histKey: 'temperature_c' as const, critHigh: 38.5 },
+                      { label: 'Pain', value: patient.vitals.pain_scale !== undefined ? `${patient.vitals.pain_scale}/10` : undefined, histKey: 'pain_scale' as const, critHigh: 8 },
+                    ].map(({ label, value, histKey, critHigh, critLow }) => {
+                      const histData = patient.vitals_history
+                        ?.map(v => typeof (v as any)[histKey] === 'number' ? (v as any)[histKey] as number : null)
+                        .filter((v): v is number => v !== null) || [];
+                      return (
+                        <div key={label} className="p-2 rounded-lg bg-cliniq-surface/40 border border-cliniq-surface/60 text-center">
+                          <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{label}</div>
+                          <div className={cn("text-sm font-bold mt-0.5", !value && 'text-muted-foreground/40')}>
+                            {value || '—'}
+                          </div>
+                          {histData.length >= 2 && (
+                            <div className="mt-1 flex justify-center">
+                              <Sparkline
+                                data={histData}
+                                width={60}
+                                height={18}
+                                criticalThresholdHigh={critHigh}
+                                criticalThresholdLow={critLow}
+                              />
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   {patient.vitals.last_updated && (
                     <p className="text-[10px] text-muted-foreground mt-2">Updated {fmtFull(patient.vitals.last_updated)}</p>
+                  )}
+                  {patient.vitals_history && patient.vitals_history.length > 1 && (
+                    <p className="text-[10px] text-cliniq-cyan/60 mt-1">{patient.vitals_history.length} readings recorded</p>
                   )}
                 </Section>
               )}

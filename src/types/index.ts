@@ -103,6 +103,7 @@ export interface Patient {
   external_id?: string;
   // Clinical enrichment
   vitals?: Vitals;
+  vitals_history?: Vitals[];
   differential_diagnosis?: DifferentialDx[];
   predicted_diagnosis?: string;
   ground_truth_diagnosis?: string;
