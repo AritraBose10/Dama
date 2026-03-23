@@ -74,7 +74,7 @@ export const PatientCardContainer: React.FC = () => {
           <PatientCard 
             key={p.id}
             rank={i + 1} 
-            initials={p.initials} 
+            initials={p.name || p.initials} 
             bedLabel={p.bed_label || 'WR'} 
             summary={p.chief_complaint} 
             type="risk" 
@@ -88,7 +88,7 @@ export const PatientCardContainer: React.FC = () => {
         {readyDispo.map(p => (
           <PatientCard 
             key={p.id}
-            initials={p.initials} 
+            initials={p.name || p.initials} 
             bedLabel={p.bed_label || 'WR'} 
             summary={p.chief_complaint} 
             type="dispo" 

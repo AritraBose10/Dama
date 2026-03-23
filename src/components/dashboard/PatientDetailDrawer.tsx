@@ -348,6 +348,15 @@ export const PatientDetailDrawer: React.FC<PatientDetailDrawerProps> = ({ patien
                     </div>
                   ) : null}
 
+                  {patient.treatment_plan.follow_up_tests?.length ? (
+                    <div className="mb-2">
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Follow-up Tests</div>
+                      {patient.treatment_plan.follow_up_tests.map((f, i) => (
+                        <p key={i} className="text-[11px] text-cliniq-cyan/90 leading-relaxed">↳ {f}</p>
+                      ))}
+                    </div>
+                  ) : null}
+
                   {patient.treatment_plan.notes && (
                     <p className="text-[11px] text-muted-foreground italic leading-relaxed mt-1">{patient.treatment_plan.notes}</p>
                   )}

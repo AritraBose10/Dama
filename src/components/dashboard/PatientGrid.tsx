@@ -116,7 +116,14 @@ export const PatientGrid: React.FC = () => {
                     {patient.initials}
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-cliniq-white">{patient.initials}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-bold text-cliniq-white tracking-tight">{patient.name || patient.initials}</div>
+                      {patient.source && patient.source !== 'CLINIQ' && (
+                        <span className="text-[8px] px-1 py-0 bg-cliniq-cyan/10 text-cliniq-cyan border border-cliniq-cyan/30 rounded lowercase">
+                          {patient.source}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">
                       {patient.age}{patient.gender} • ARR {new Date(patient.arrived_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
