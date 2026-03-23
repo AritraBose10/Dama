@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { X, Activity, Clock, ShieldAlert, User, Zap, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Patient, RiskFlag, Vitals } from '@/types';
 import { useClinicalStore } from '@/hooks/useStore';
 import { Sparkline } from './Sparkline';
+import { HandoffModal } from './HandoffModal';
 
 interface PatientDetailDrawerProps {
   patients: Patient[];
@@ -74,6 +75,7 @@ export const PatientDetailDrawer: React.FC<PatientDetailDrawerProps> = ({ patien
 
   const patient = patients.find(p => p.id === selectedPatientId);
   const isOpen = !!patient;
+  const [handoffOpen, setHandoffOpen] = useState(false);
 
   return (
     <>
@@ -396,6 +398,15 @@ export const PatientDetailDrawer: React.FC<PatientDetailDrawerProps> = ({ patien
                       ))}
                     </div>
                   ) : null}
+                  {patient.disposition_plan.disposition === 'ADMIT' && (
+                    <button
+                      onClick={() => setHandoffOpen(true)}
+                      className="mt-3 w-full px-4 py-2.5 rounded-lg bg-cliniq-cyan/20 hover:bg-cliniq-cyan/30 border border-cliniq-cyan/30 text-cliniq-cyan text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      Generate SBAR Handoff
+                    </button>
+                  )}
                 </Section>
               )}
 
@@ -433,6 +444,14 @@ export const PatientDetailDrawer: React.FC<PatientDetailDrawerProps> = ({ patien
           </>
         )}
       </div>
+
+      {patient && (
+        <HandoffModal
+          patient={patient}
+          isOpen={handoffOpen}
+          onClose={() => setHandoffOpen(false)}
+        />
+      )}
     </>
   );
 };
