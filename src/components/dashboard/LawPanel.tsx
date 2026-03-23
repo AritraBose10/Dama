@@ -13,51 +13,88 @@ interface Message {
   timestamp: Date;
 }
 
+const HELP_TEXT = `Available Commands:
+  /summarize [initials]  — Concise 3-line patient summary
+  /predict [initials]    — Estimated time to discharge
+  /handoff [initials]    — Generate SBAR handoff note
+  /alert sepsis          — Filter grid to sepsis-watch patients
+  /help                  — Show this help message
+  @[initials] [question] — Ask AI about a specific patient`;
+
+function findPatientByInput(patients: Patient[], input: string): Patient | undefined {
+  const term = input.trim().toUpperCase();
+  return patients.find(p =>
+    p.initials.toUpperCase() === term ||
+    p.name?.toUpperCase().startsWith(term) ||
+    p.initials.toUpperCase().replace('.', '') === term.replace('.', '')
+  );
+}
+
 export const LAWPanel: React.FC = () => {
-  const { selectedPatientId, setIsAiThinking } = useClinicalStore();
+  const { selectedPatientId, setIsAiThinking, setActiveTab } = useClinicalStore();
   const { patients } = usePatients();
   const [messages, setMessages] = useState<Message[]>([]);
-  
-  // Set initial system messages based on live data
+
   useEffect(() => {
     if (patients.length > 0 && messages.length === 0) {
       const topRisk = [...patients].sort((a, b) => b.risk_score - a.risk_score).slice(0, 3);
       const systemMsgs: Message[] = [
         { id: 'h-1', role: 'system', text: "Top Clinical Risks:", timestamp: new Date() },
-        ...topRisk.map((p, i) => ({
+        ...topRisk.map((p) => ({
           id: `p-${p.id}`,
           role: 'system' as const,
-          text: `${p.initials} ${p.bed_label || 'WR'} — ${p.chief_complaint} (Risk: ${p.risk_score})`,
+          text: `${p.name || p.initials} ${p.bed_label || 'WR'} — ${p.chief_complaint} (Risk: ${p.risk_score})`,
           timestamp: new Date()
         })),
         { id: 'sep', role: 'system', text: "", timestamp: new Date() },
+        { id: 'help-hint', role: 'system', text: "Type /help for available commands", timestamp: new Date() },
         { id: 'ready', role: 'system', text: "Ready for input...", timestamp: new Date() }
       ];
       setMessages(systemMsgs);
     }
   }, [patients, messages.length]);
-  
+
   const [inputText, setInputText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const triggerAI = async (input: string, contextPatient?: any) => {
+  const addUserMessage = (text: string) => {
+    setMessages(prev => [...prev, {
+      id: `usr-${Date.now()}`,
+      role: 'user',
+      text,
+      timestamp: new Date()
+    }]);
+  };
+
+  const addSystemMessage = (text: string) => {
+    setMessages(prev => [...prev, {
+      id: `sys-${Date.now()}`,
+      role: 'system',
+      text,
+      timestamp: new Date()
+    }]);
+  };
+
+  const triggerAI = async (input: string, contextPatient?: Patient, promptTemplate?: (ctx: any) => string) => {
     if (isStreaming) return;
-    
+
     setIsAiThinking(true);
     setIsStreaming(true);
-    
+
     const aiMessageId = Date.now().toString();
     setMessages(prev => [...prev, { id: aiMessageId, role: 'ai', text: '> Processing...', timestamp: new Date() }]);
-    
+
     try {
       const patient = contextPatient || patients.find(p => p.id === selectedPatientId) || patients[0];
       if (!patient) throw new Error('No patient context');
       const context = generateLawContext(patient);
-      const systemPrompt = prompts.PATIENT_ASSIST(context);
+      const systemPrompt = promptTemplate
+        ? promptTemplate(context)
+        : prompts.PATIENT_ASSIST(context);
 
       const stream = aiProvider.streamText(input, systemPrompt);
-      
+
       let fullText = '';
       for await (const chunk of stream) {
         fullText += chunk;
@@ -84,16 +121,117 @@ export const LAWPanel: React.FC = () => {
     }
   };
 
+  const handleCommand = (command: string) => {
+    const trimmed = command.trim();
+
+    // /help
+    if (trimmed === '/help') {
+      addUserMessage('/help');
+      addSystemMessage(HELP_TEXT);
+      return;
+    }
+
+    // /summarize [initials]
+    if (trimmed.startsWith('/summarize')) {
+      const arg = trimmed.replace('/summarize', '').trim();
+      addUserMessage(trimmed);
+      if (!arg) {
+        addSystemMessage('Usage: /summarize [patient initials]');
+        return;
+      }
+      const patient = findPatientByInput(patients, arg);
+      if (!patient) {
+        addSystemMessage(`Patient "${arg}" not found. Try using their initials.`);
+        return;
+      }
+      triggerAI(`Summarize patient ${patient.name || patient.initials}`, patient, prompts.SUMMARIZE);
+      return;
+    }
+
+    // /predict [initials]
+    if (trimmed.startsWith('/predict')) {
+      const arg = trimmed.replace('/predict', '').trim();
+      addUserMessage(trimmed);
+      if (!arg) {
+        addSystemMessage('Usage: /predict [patient initials]');
+        return;
+      }
+      const patient = findPatientByInput(patients, arg);
+      if (!patient) {
+        addSystemMessage(`Patient "${arg}" not found.`);
+        return;
+      }
+      triggerAI(`Predict discharge for ${patient.name || patient.initials}`, patient, prompts.PREDICT_DISCHARGE);
+      return;
+    }
+
+    // /handoff [initials]
+    if (trimmed.startsWith('/handoff')) {
+      const arg = trimmed.replace('/handoff', '').trim();
+      addUserMessage(trimmed);
+      if (!arg) {
+        addSystemMessage('Usage: /handoff [patient initials]');
+        return;
+      }
+      const patient = findPatientByInput(patients, arg);
+      if (!patient) {
+        addSystemMessage(`Patient "${arg}" not found.`);
+        return;
+      }
+      triggerAI(`Generate SBAR handoff for ${patient.name || patient.initials}`, patient, prompts.SBAR_GENERATE);
+      return;
+    }
+
+    // /alert sepsis
+    if (trimmed.startsWith('/alert')) {
+      const arg = trimmed.replace('/alert', '').trim().toLowerCase();
+      addUserMessage(trimmed);
+      if (arg === 'sepsis') {
+        const sepsisPatients = patients.filter(p => p.sepsis_watch);
+        if (sepsisPatients.length === 0) {
+          addSystemMessage('No patients currently on sepsis watch.');
+        } else {
+          addSystemMessage(`${sepsisPatients.length} patient(s) on SEPSIS WATCH:\n${sepsisPatients.map(p => `  ${p.name || p.initials} (${p.bed_label || 'WR'}) — ${p.chief_complaint}`).join('\n')}`);
+        }
+        return;
+      }
+      addSystemMessage(`Unknown alert filter: "${arg}". Try: /alert sepsis`);
+      return;
+    }
+
+    // @[initials] [question]
+    if (trimmed.startsWith('@')) {
+      const parts = trimmed.substring(1).split(/\s+/);
+      const initials = parts[0];
+      const question = parts.slice(1).join(' ');
+      addUserMessage(trimmed);
+      if (!initials) {
+        addSystemMessage('Usage: @[patient initials] [your question]');
+        return;
+      }
+      const patient = findPatientByInput(patients, initials);
+      if (!patient) {
+        addSystemMessage(`Patient "@${initials}" not found.`);
+        return;
+      }
+      if (!question) {
+        triggerAI(`Evaluate risk and next steps for patient ${patient.name || patient.initials}`, patient);
+      } else {
+        triggerAI(question, patient);
+      }
+      return;
+    }
+
+    // Default: free-form query
+    addUserMessage(trimmed);
+    triggerAI(trimmed);
+  };
+
   useEffect(() => {
     if (selectedPatientId) {
       const patient = patients.find(p => p.id === selectedPatientId);
       if (patient) {
-        setMessages(prev => [...prev, {
-          id: `usr-${Date.now()}`,
-          role: 'user',
-          text: `Evaluate Bed ${patient.bed_label || patient.initials}`,
-          timestamp: new Date()
-        }]);
+        addUserMessage(`Evaluate Bed ${patient.bed_label || patient.initials}`);
         triggerAI(`Evaluate risk and next steps for patient in ${patient.bed_label || 'current bed'}. Current complaint: ${patient.chief_complaint}.`, patient);
       }
     }
@@ -109,13 +247,7 @@ export const LAWPanel: React.FC = () => {
     if (e.key === 'Enter' && inputText && !isStreaming) {
       const command = inputText;
       setInputText('');
-      setMessages(prev => [...prev, {
-        id: `usr-${Date.now()}`,
-        role: 'user',
-        text: command,
-        timestamp: new Date()
-      }]);
-      triggerAI(command);
+      handleCommand(command);
     }
   };
 
@@ -136,7 +268,7 @@ export const LAWPanel: React.FC = () => {
         </div>
       </div>
 
-      <div 
+      <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto p-4 space-y-1 text-cliniq-ai-green text-[13px] leading-relaxed selection:bg-cliniq-cyan selection:text-white"
       >
@@ -154,13 +286,13 @@ export const LAWPanel: React.FC = () => {
 
       <div className="p-3 bg-cliniq-navy border-t border-cliniq-surface flex items-center gap-3">
         <span className="text-cliniq-cyan font-bold">*What\</span>
-        <input 
+        <input
           type="text"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={isStreaming}
-          placeholder={isStreaming ? "AI is processing..." : "Type command or query..."}
+          placeholder={isStreaming ? "AI is processing..." : "Type /help for commands, @initials to query..."}
           className="flex-1 bg-transparent border-none outline-none text-white text-sm placeholder:text-slate-600 disabled:opacity-50"
         />
       </div>
